@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEAD WAVE — Ultimate Edition</title>
+<title>WAVE OF THE DEAD - draco </title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -51,7 +51,7 @@
     font-size: 11px; border-radius: 4px;
     cursor: pointer; letter-spacing: 2px;
     box-shadow: 0 0 20px rgba(57,255,20,0.5);
-    transition: all 0.15s ease-in-out; /* Added ease-in-out for smoother animation */
+    transition: all 0.15s ease-in-out; /* Added ease-in-out */
   }
   .btn:hover { transform: scale(1.06); box-shadow: 0 0 30px rgba(57,255,20,0.8); }
   .btn.red {
@@ -217,6 +217,49 @@
       margin-bottom: 4px;
       text-shadow: 0 0 8px #ff0000;
   }
+
+  /* ── JACKPOT WHEEL ── */
+  #jackpot-wheel-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 110;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  #jackpot-wheel-overlay.visible { opacity: 1; pointer-events: all; }
+  .wheel-panel {
+    max-width: 500px; width: 95%;
+    background: #111;
+    border: 2px solid #ffdd44;
+    border-radius: 12px; padding: 28px;
+    text-align: center;
+  }
+  .wheel-title { font-size: 16px; color: #ffdd44; margin-bottom: 10px; text-shadow: 0 0 10px #ffdd44; }
+  .wheel-sub { font-size: 8px; color: #aaa; margin-bottom: 20px; }
+  .wheel-container { position: relative; width: 300px; height: 300px; margin: 0 auto; }
+  .wheel-canvas { border-radius: 50%; border: 4px solid #ffdd44; }
+  .wheel-pointer {
+    position: absolute; top: -15px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 25px solid #ffdd44; /* Pointer color */
+    z-index: 10;
+  }
+  .spin-btn {
+    background: linear-gradient(135deg,#ffdd44,#ffaa00);
+    color: #221100; border: none; padding: 14px 36px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px; border-radius: 4px;
+    cursor: pointer; letter-spacing: 2px;
+    box-shadow: 0 0 20px rgba(255,221,68,0.6);
+    transition: all 0.15s ease-in-out;
+    margin-top: 20px;
+  }
+  .spin-btn:hover { transform: scale(1.06); box-shadow: 0 0 30px rgba(255,221,68,0.9); }
+  .wheel-result { font-size: 12px; color: #39ff14; margin-top: 15px; font-weight: bold; }
+  .wheel-result.lost { color: #ff4444; }
 </style>
 </head>
 <body>
@@ -292,6 +335,20 @@
   </div>
 </div>
 
+<!-- JACKPOT WHEEL -->
+<div id="jackpot-wheel-overlay">
+  <div class="wheel-panel">
+    <div class="wheel-title">LEVEL UP!</div>
+    <div class="wheel-sub">Spin the wheel to get a new weapon!</div>
+    <div class="wheel-container">
+      <canvas id="jackpot-canvas" class="wheel-canvas" width="300" height="300"></canvas>
+      <div class="wheel-pointer"></div>
+    </div>
+    <button class="spin-btn" id="spin-button" onclick="spinJackpotWheel()">SPIN!</button>
+    <div class="wheel-result" id="wheel-result"></div>
+  </div>
+</div>
+
 <!-- MAIN OVERLAY -->
 <div id="overlay">
   <div class="screen" id="main-screen">
@@ -316,7 +373,6 @@ window.addEventListener('resize', () => {
 // ─────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────
-// Removed MAP_W, MAP_H - map is now effectively infinite
 const PLAYER_R = 18;
 const BULLET_R = 4;
 const BASE_FIRE_RATE = 160; // ms
@@ -332,7 +388,7 @@ const WEAPONS = {
     spread: 0.08, pierce: 1, critChance: 0.05, critMult: 1.5,
     bulletColor: '#ffffaa', trailColor: 'rgba(255,255,150,0.3)',
     isDraco: false,
-    attachments: ['extended_mag_pistol', 'laser_sight_pistol', 'auto_switch_glock'] // Glock specific
+    attachments: ['extended_mag_pistol', 'laser_sight_pistol', 'auto_switch_glock']
   },
   smg: {
     name: 'SMG', color: '#88bbff', baseAmmo: 30, baseFireRate: 100, baseDamage: 1,
@@ -352,7 +408,7 @@ const WEAPONS = {
     name: 'MICRO DRACO', color: '#ff4500', baseAmmo: 18, baseFireRate: 120, baseDamage: 2.2,
     spread: 0.06, pierce: 3, critChance: 0.15, critMult: 2.0,
     bulletColor: '#ff2200', trailColor: 'rgba(255,80,0,0.4)',
-    isDraco: true, // Treat as Draco-like for effects
+    isDraco: true,
     attachments: ['extended_mag_draco', 'draco_scope']
   },
   draco: {
@@ -361,9 +417,25 @@ const WEAPONS = {
     igniteChance: 0.35, roarChance: 0.04,
     bulletColor: '#ff4500', trailColor: 'rgba(255,100,0,0.5)',
     isDraco: true,
-    attachments: ['draco_breath', 'draco_scales', 'draco_wings', 'draco_exe'] // Mythic upgrades are here
+    attachments: ['draco_breath', 'draco_scales', 'draco_wings', 'draco_exe']
   }
 };
+
+// ─────────────────────────────────────────
+//  JACKPOT WHEEL WEAPON SLOTS
+// ─────────────────────────────────────────
+// Defines what the player can win from the jackpot wheel
+const WEAPON_WHEEL_SLOTS = [
+    { type: 'weapon', id: 'pistol' },
+    { type: 'weapon', id: 'smg' },
+    { type: 'weapon', id: 'shotgun' },
+    { type: 'weapon', id: 'micro_draco' },
+    // Draco is a special case, might be awarded via pickup or specific upgrade path
+    // { type: 'weapon', id: 'draco' },
+    { type: 'upgrade_points', amount: 5 }, // Example for other rewards
+    { type: 'luck', amount: 3 },
+];
+
 
 // ─────────────────────────────────────────
 //  ATTACHMENT DEFINITIONS
@@ -407,7 +479,6 @@ const UPGRADE_POOL = [
   { id:'crit2',     icon:'💥', name:'EXECUTIONER',        desc:'Crits deal 3x instead of 2x',       tier:'epic',   minLuck:15, apply: s=>{ s.upgrades.critMult = (s.upgrades.critMult||1)*1.5; } },
   { id:'pierce1',   icon:'➡', name:'PENETRATOR',          desc:'+2 pierce (bullets hit more)',      tier:'rare',   minLuck:5,  apply: s=>{ s.upgrades.pierce = (s.upgrades.pierce||0)+2; } },
   { id:'reload1',   icon:'🔄', name:'SPEED LOADER',       desc:'-25% reload time',                  tier:'common', minLuck:0,  apply: s=>{ s.upgrades.reload = (s.upgrades.reload||1)*0.75; } },
-  // { id:'ammo1',     icon:'📦', name:'EXTENDED MAG',       desc:'+50% max ammo',                     tier:'common', minLuck:0,  apply: s=>{ s.upgrades.ammoMult = (s.upgrades.ammoMult||1)*1.5; } }, // Replaced by attachments
   { id:'freeze1',   icon:'❄', name:'CRYO ROUNDS',         desc:'Bullets slow zombies -30%',         tier:'epic',   minLuck:12, apply: s=>{ s.upgrades.cryo = true; } },
   { id:'toxic1',    icon:'☠', name:'TOXIC ROUNDS',        desc:'Bullets poison zombies (DoT)',      tier:'epic',   minLuck:12, apply: s=>{ s.upgrades.toxic = true; } },
 
@@ -494,9 +565,14 @@ function makeState() {
       ammo: 12, reloading: false, reloadTimer: 0,
       speed: 3.6, speedBoost: 0,
       invincible: 0,
-      weapon: 'pistol',
+      weapon: 'pistol', // Starter weapon is pistol
       hasDraco: false,
       dracoWeaponSlot: null, // To store the specific Draco weapon instance
+
+      // Leveling system
+      playerLevel: 1,
+      xp: 0,
+      xpToLevelUp: 100, // Initial XP needed
     },
     upgrades: {
       damage:1, fireRate:1, critChance:0, critMult:1, pierce:0, reload:1,
@@ -532,6 +608,11 @@ function makeState() {
 
     // input
     keys: {}, mouse: { x:0, y:0, down:false },
+
+    // Jackpot Wheel state
+    jackpotWheelVisible: false,
+    jackpotSpinning: false,
+    jackpotResult: null,
   };
 }
 let G = makeState();
@@ -677,7 +758,7 @@ function getWeaponData(){
       fireRate = Math.max(50, fireRate * 0.5); // Make it fully auto, capped fire rate
       maxAmmo = Math.floor(maxAmmo * 1.2); // Small ammo bonus for auto
     }
-    if (u.spreadMult !== undefined) spread *= u.spreadMult; // Apply laser sight effect
+    // Spread multiplier is handled by G.upgrades.spreadMult, which applies to all weapons if defined
   }
   if (p.weapon === 'smg' && u.spreadMult !== undefined) spread *= u.spreadMult;
   if (p.weapon === 'shotgun' && u.spreadMult !== undefined) spread *= u.spreadMult; // Choke effect
@@ -991,6 +1072,8 @@ function startBossFight(bossId) {
     G.currentBoss.attackTimer = 0;
     G.currentBoss.targetAngle = 0; // For movement
     G.currentBoss.specialTimer = 0; // For abilities
+    G.currentBoss.wobble = Math.random()*Math.PI*2; // Add wobble for boss too
+    G.currentBoss.wobbleSpd = rnd(0.04,0.08); // Slower wobble for boss
 
     // Add boss to the zombies list
     G.zombies.push(G.currentBoss);
@@ -1017,12 +1100,15 @@ function handleBossAbilities() {
     const distToPlayer = dist(boss.x, boss.y, p.x, p.y);
 
     // Boss movement (simplified)
-    if (!boss.isCharging) { // Don't move during charge
+    if (!boss.isCharging && !boss.isTeleporting) { // Don't move during charge or teleport
         const angleToPlayer = Math.atan2(p.y - boss.y, p.x - boss.x);
         boss.targetAngle = angleToPlayer;
         boss.x += Math.cos(angleToPlayer) * boss.speed;
         boss.y += Math.sin(angleToPlayer) * boss.speed;
     }
+
+    // Boss wobble
+    boss.wobble += boss.wobbleSpd;
 
     // Attack timers
     if (boss.attackTimer > 0) boss.attackTimer--;
@@ -1030,7 +1116,7 @@ function handleBossAbilities() {
 
     // Execute abilities
     for (const ability of boss.abilities) {
-        if (boss.attackTimer === 0 && distToPlayer < boss.radius * 1.5) { // Attack range check
+        if (boss.attackTimer === 0 && distToPlayer < boss.radius * 1.8) { // Attack range check (slightly larger)
             if (ability === 'slam' && boss.attackTimer === 0) {
                 boss.attackTimer = boss.attackRate * 1.5; // Longer cooldown for slam
                 boss.isSlamming = true; // Flag for animation/effect
@@ -1139,6 +1225,23 @@ function endWave(){
   G.state = 'waveComplete';
   G.waveTimer = 240;
 
+  // XP gain for leveling up
+  const xpGain = 50 + G.wave * 10; // Gain more XP on later waves
+  G.player.xp += xpGain;
+  let leveledUp = false;
+  while (G.player.xp >= G.player.xpToLevelUp) {
+      G.player.xp -= G.player.xpToLevelUp;
+      G.player.playerLevel++;
+      G.player.xpToLevelUp = Math.floor(G.player.xpToLevelUp * 1.3); // Increase XP needed for next level
+      leveledUp = true;
+  }
+
+  if (leveledUp) {
+      openJackpotWheel(); // Open the wheel on level up
+      // Don't immediately start next wave, wait for wheel to close
+      return;
+  }
+
   // Luck gain per wave (scaling)
   const luckGain = 1 + Math.floor(G.wave*0.4);
   G.luck += luckGain;
@@ -1189,14 +1292,16 @@ function openUpgradeMenu(){
 
     // Check if it's a weapon-specific attachment
     if (u.id.includes('_')) {
-        const weaponPart = u.id.split('_').slice(0, -1).join('_'); // e.g., "extended_mag"
-        const weaponName = u.id.split('_').pop(); // e.g., "pistol"
+        const parts = u.id.split('_');
+        const weaponName = parts.pop(); // Last part is the weapon name
+        const attachmentType = parts.join('_'); // Rest is the attachment type
 
         // If the attachment is for the current weapon, include it
         if (G.player.weapon === weaponName) return true;
-        // If it's a general attachment (like extended mag for pistol/smg)
-        if (weaponPart === 'extended_mag' && (weaponName === 'pistol' || weaponName === 'smg' || weaponName === 'shotgun')) return true;
-        if (weaponPart === 'laser_sight' && (weaponName === 'pistol' || weaponName === 'smg')) return true;
+
+        // Handle general attachments that might apply to multiple weapons
+        if (attachmentType === 'extended_mag' && (weaponName === 'pistol' || weaponName === 'smg' || weaponName === 'shotgun')) return true;
+        if (attachmentType === 'laser_sight' && (weaponName === 'pistol' || weaponName === 'smg')) return true;
 
         return false; // Attachment not relevant to current weapon
     }
@@ -1246,15 +1351,6 @@ function openUpgradeMenu(){
     chosen.push(selectedItem);
   }
 
-  // Fill remaining slots if not enough unique options were found
-  if(chosen.length<3){
-    const fallbackPool = pool.filter(u => !chosen.find(c => c.id === u.id));
-    while(chosen.length<3 && fallbackPool.length) {
-      const fallbackItem = fallbackPool.splice(Math.floor(Math.random()*fallbackPool.length),1)[0];
-      chosen.push(fallbackItem);
-    }
-  }
-
   cardsEl.innerHTML = '';
   chosen.forEach(u=>{
     const tier = u.tier;
@@ -1292,13 +1388,16 @@ function applyUpgrade(u){
               ...WEAPONS.draco, // Base Draco properties
               name: WEAPONS.draco.name, // Keep original name
               isDraco: true,
+              // Initialize base stats to allow upgrades to modify them
+              baseDamage: WEAPONS.draco.baseDamage,
+              baseFireRate: WEAPONS.draco.baseFireRate,
+              baseAmmo: WEAPONS.draco.baseAmmo,
           };
           // Re-apply Draco-specific upgrades to this instance
           if (G.upgrades.draco_breath) G.player.dracoWeaponSlot.draco_breath = true;
           if (G.upgrades.draco_scales) G.player.dracoWeaponSlot.draco_scales = true;
           if (G.upgrades.draco_wings) G.player.dracoWeaponSlot.draco_wings = true;
           if (G.upgrades.draco_wideRoar) G.player.dracoWeaponSlot.draco_wideRoar = true; // This is part of draco_exe
-          if (G.upgrades.damage > WEAPONS.draco.baseDamage) G.player.dracoWeaponSlot.baseDamage = G.upgrades.damage; // Apply damage upgrade if it was increased before Draco was found
 
           G.player.ammo = getWeaponData().maxAmmo; // Set ammo to max for Draco
       }
@@ -1315,6 +1414,214 @@ function closeUpgradeMenu(){
   setTimeout(()=>{
     if(G.state==='waveComplete') startWave();
   }, 800);
+}
+
+// ─────────────────────────────────────────
+//  JACKPOT WHEEL
+// ─────────────────────────────────────────
+let jackpotCanvas = document.getElementById('jackpot-canvas');
+let jackpotCtx = jackpotCanvas.getContext('2d');
+let wheelSpinning = false;
+let wheelRotation = 0;
+let wheelTargetRotation = 0;
+let spinSpeed = 0;
+const PI = Math.PI;
+
+function drawJackpotWheel() {
+    const ctx = jackpotCtx;
+    const canvasSize = jackpotCanvas.width;
+    const centerX = canvasSize / 2;
+    const centerY = canvasSize / 2;
+    const radius = canvasSize / 2 * 0.9; // Slightly smaller radius to fit in canvas
+
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+    const numSegments = WEAPON_WHEEL_SLOTS.length;
+    const angleStep = (2 * PI) / numSegments;
+
+    for (let i = 0; i < numSegments; i++) {
+        const angle = wheelRotation + i * angleStep;
+        const startAngle = angle;
+        const endAngle = angle + angleStep;
+
+        // Draw segment arc
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.lineTo(centerX, centerY);
+        ctx.closePath();
+
+        // Alternate colors
+        ctx.fillStyle = i % 2 === 0 ? '#e6c300' : '#ccaa00';
+        ctx.fill();
+
+        // Draw dividing lines
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.lineTo(centerX, centerY);
+        ctx.stroke();
+
+        // Draw text label
+        const labelAngle = startAngle + angleStep / 2;
+        const labelRadius = radius * 0.75;
+        const labelX = centerX + Math.cos(labelAngle) * labelRadius;
+        const labelY = centerY + Math.sin(labelAngle) * labelRadius;
+
+        ctx.save();
+        ctx.translate(labelX, labelY);
+        ctx.rotate(labelAngle + PI / 2); // Rotate text to be radial
+        ctx.textAlign = 'center';
+        ctx.font = '8px Press Start 2P, monospace';
+        ctx.fillStyle = '#000';
+
+        let labelText = '';
+        const slot = WEAPON_WHEEL_SLOTS[i];
+        if (slot.type === 'weapon') {
+            labelText = WEAPONS[slot.id].name.replace('✦', '').replace('✦', ''); // Remove Draco stars for cleaner text
+        } else if (slot.type === 'luck') {
+            labelText = `LUCK +${slot.amount}`;
+        } else if (slot.type === 'upgrade_points') {
+            labelText = `UPGRADE`;
+        }
+        ctx.fillText(labelText, 0, 0);
+        ctx.restore();
+    }
+}
+
+function spinJackpotWheel() {
+    if (wheelSpinning) return;
+    wheelSpinning = true;
+    document.getElementById('spin-button').disabled = true;
+
+    // Randomly determine spin duration and final stop point
+    const spinDuration = rnd(3000, 5000); // ms
+    const finalStopAngle = rnd(0, 2 * PI); // Where the pointer should ideally stop
+
+    // Calculate target rotation to ensure it stops near the pointer
+    // We want the pointer to align with a segment. The pointer is at the top (angle PI/2 or -PI/2).
+    // Let's assume pointer is at top, so we need to stop at an angle that aligns with a segment's center.
+    const numSegments = WEAPON_WHEEL_SLOTS.length;
+    const angleStep = (2 * PI) / numSegments;
+    let bestStopAngle = 0;
+    let closestSegmentIndex = -1;
+
+    for (let i = 0; i < numSegments; i++) {
+        const segmentCenterAngle = (i * angleStep) + angleStep / 2;
+        // Calculate the difference between segment center and desired stop angle
+        let diff = Math.abs(finalStopAngle - segmentCenterAngle);
+        // Handle wrap-around for angles (e.g., 0.1 and 6.18 are close)
+        if (diff > PI) diff = 2 * PI - diff;
+
+        if (closestSegmentIndex === -1 || diff < Math.abs(finalStopAngle - (closestSegmentIndex * angleStep + angleStep / 2))) {
+            closestSegmentIndex = i;
+        }
+    }
+    // The target angle is the center of the chosen segment
+    wheelTargetRotation = (closestSegmentIndex * angleStep) + angleStep / 2;
+
+    // Add some extra full rotations for visual effect
+    wheelTargetRotation += rnd(3, 7) * 2 * PI;
+
+    spinSpeed = 0.05; // Initial spin speed
+    const startTime = performance.now();
+
+    function animateSpin(currentTime) {
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / spinDuration, 1);
+
+        // Ease-out function for deceleration
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+        wheelRotation = wheelTargetRotation * easedProgress; // Move towards target
+
+        drawJackpotWheel();
+
+        if (progress < 1) {
+            requestAnimationFrame(animateSpin);
+        } else {
+            // Spin finished
+            wheelRotation = wheelTargetRotation; // Ensure it's exactly at the target
+            drawJackpotWheel(); // Final draw
+
+            const winningSegmentIndex = Math.round(wheelTargetRotation / angleStep) % numSegments;
+            const result = WEAPON_WHEEL_SLOTS[winningSegmentIndex];
+            G.jackpotResult = result;
+
+            let resultText = '';
+            let resultClass = 'wheel-result';
+
+            if (result.type === 'weapon') {
+                const weaponName = WEAPONS[result.id].name;
+                resultText = `YOU WON: ${weaponName}!`;
+                // Add weapon if not already owned
+                if (!WEAPONS[result.id]) { // Check if weapon exists
+                    WEAPONS[result.id] = { ...WEAPONS[result.id], baseAmmo: WEAPONS[result.id].baseAmmo }; // Ensure weapon is properly initialized
+                }
+                if (!G.player.ownedWeapons || !G.player.ownedWeapons.includes(result.id)) {
+                    if (!G.player.ownedWeapons) G.player.ownedWeapons = [];
+                    G.player.ownedWeapons.push(result.id);
+                    G.player.weapon = result.id; // Switch to the new weapon
+                    G.player.ammo = getWeaponData().maxAmmo; // Refill ammo
+                } else {
+                    // If weapon is already owned, maybe give ammo or bonus
+                    G.player.ammo = Math.min(getWeaponData().maxAmmo, G.player.ammo + Math.floor(WEAPONS[result.id].baseAmmo * 0.75));
+                    resultText = `YOU WON AMMO FOR ${weaponName}!`;
+                }
+            } else if (result.type === 'luck') {
+                G.luck += result.amount;
+                resultText = `LUCK +${result.amount}!`;
+                showLuckNotify(`✦ LUCK +${result.amount} ✦`);
+            } else if (result.type === 'upgrade_points') {
+                // Implement upgrade points system later if needed, for now, maybe give a small bonus
+                G.player.hp = Math.min(G.player.maxHp, G.player.hp + 10);
+                resultText = `BONUS HEALTH!`;
+            } else {
+                resultText = 'BETTER LUCK NEXT TIME!';
+                resultClass += ' lost';
+            }
+
+            document.getElementById('wheel-result').textContent = resultText;
+            document.getElementById('wheel-result').className = resultClass;
+
+            document.getElementById('spin-button').disabled = false;
+            wheelSpinning = false;
+        }
+    }
+    requestAnimationFrame(animateSpin);
+}
+
+function openJackpotWheel() {
+    const overlay = document.getElementById('jackpot-wheel-overlay');
+    overlay.classList.add('visible');
+    G.jackpotWheelVisible = true;
+    G.jackpotSpinning = false;
+    G.jackpotResult = null;
+    wheelRotation = 0; // Reset rotation
+    wheelTargetRotation = 0;
+    spinSpeed = 0;
+    document.getElementById('spin-button').disabled = false;
+    document.getElementById('wheel-result').textContent = '';
+
+    // Initialize canvas and draw the wheel
+    jackpotCanvas.width = 300; // Reset canvas size for clarity
+    jackpotCanvas.height = 300;
+    drawJackpotWheel();
+}
+
+function closeJackpotWheel() {
+    const overlay = document.getElementById('jackpot-wheel-overlay');
+    overlay.classList.remove('visible');
+    G.jackpotWheelVisible = false;
+    // After closing, potentially start the next wave if it was pending
+    if (G.state === 'waveComplete') {
+        startWave();
+    }
+}
+
+function spinJackpotWheel() {
+    spinJackpotWheel(); // Call the actual spin function
 }
 
 // ─────────────────────────────────────────
@@ -1686,7 +1993,8 @@ function collectPickup(pk){
         ...WEAPONS.draco, // Base Draco properties
         name: WEAPONS.draco.name, // Keep original name
         isDraco: true,
-        baseDamage: WEAPONS.draco.baseDamage, // Initialize baseDamage
+        // Initialize base stats to allow upgrades to modify them
+        baseDamage: WEAPONS.draco.baseDamage,
         baseFireRate: WEAPONS.draco.baseFireRate,
         baseAmmo: WEAPONS.draco.baseAmmo,
     };
@@ -1710,10 +2018,11 @@ function collectPickup(pk){
 }
 
 // ─────────────────────────────────────────
-//  SKIP UPGRADE (exposed globally)
+//  SKIP UPGRADE / CLOSE JACKPOT (exposed globally)
 // ─────────────────────────────────────────
 window.Game = {
-  skipUpgrade: ()=>{ closeUpgradeMenu(); }
+  skipUpgrade: ()=>{ closeUpgradeMenu(); },
+  closeJackpot: ()=>{ closeJackpotWheel(); }
 };
 
 // ─────────────────────────────────────────
@@ -1741,10 +2050,6 @@ function render(){
   const gy0=Math.floor((G.cam.y)/GRID)*GRID;
   for(let x=gx0;x<G.cam.x+w+GRID;x+=GRID){ ctx.beginPath();ctx.moveTo(x,G.cam.y);ctx.lineTo(x,G.cam.y+h);ctx.stroke(); }
   for(let y=gy0;y<G.cam.y+h+GRID;y+=GRID){ ctx.beginPath();ctx.moveTo(G.cam.x,y);ctx.lineTo(G.cam.x+w,y);ctx.stroke(); }
-
-  // Border (optional, for visual reference, could be removed for true infinite feel)
-  // ctx.strokeStyle='rgba(57,255,20,0.25)'; ctx.lineWidth=3;
-  // ctx.strokeRect(2,2,MAP_W-4,MAP_H-4);
 
   // ── BURN MARKS / BLOOD POOLS ──
   for(const bm of G.burnMarks){
@@ -2062,6 +2367,7 @@ function showGameOver(){
         <div class="go-stat"><div class="go-stat-label">FINAL SCORE</div><div class="go-stat-val">${G.score.toLocaleString()}</div></div>
         <div class="go-stat"><div class="go-stat-label">FINAL LUCK</div><div class="go-stat-val" style="color:#dd88ff">${G.luck}</div></div>
         <div class="go-stat"><div class="go-stat-label">DRACO KILLS</div><div class="go-stat-val" style="color:#ff8c00">${G.totalDracoKills}</div></div>
+        <div class="go-stat"><div class="go-stat-label">PLAYER LEVEL</div><div class="go-stat-val">${G.player.playerLevel}</div></div>
       </div>
       <button class="btn red" onclick="startGame()" style="margin-right:10px">TRY AGAIN</button>
       <button class="btn" onclick="showMenu()" style="background:linear-gradient(135deg,#334,#223);color:#aaa;box-shadow:none;margin-top:10px">MENU</button>
