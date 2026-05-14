@@ -12,14 +12,99 @@ window.addEventListener('resize', () => {
   canvas.height = window.innerHeight;
 });
 
-// --- CONSTANTS ---
+// ─────────────────────────────────────────
+//  AUDIO SETUP
+// ─────────────────────────────────────────
+// Create an AudioContext for more advanced audio control (optional but recommended)
+// const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+// --- SOUND EFFECTS ---
+const soundEffects = {
+  // --- CORE GAMEPLAY SOUNDS ---
+  shoot: { path: 'sounds/shoot.wav', volume: 0.4, audio: null },
+  reload: { path: 'sounds/reload.wav', volume: 0.5, audio: null },
+  zombie_hit: { path: 'sounds/zombie_hit.wav', volume: 0.3, audio: null },
+  player_hit: { path: 'sounds/player_hit.wav', volume: 0.7, audio: null },
+  zombie_death: { path: 'sounds/zombie_death.wav', volume: 0.35, audio: null },
+  zombie_explode: { path: 'sounds/zombie_explode.wav', volume: 0.6, audio: null },
+
+  // --- BOSS & SPECIAL ENEMY SOUNDS ---
+  boss_spawn: { path: 'sounds/boss_spawn.wav', volume: 0.8, audio: null },
+  boss_slam: { path: 'sounds/boss_slam.wav', volume: 0.7, audio: null },
+  boss_acid_spit: { path: 'sounds/boss_acid_spit.wav', volume: 0.6, audio: null },
+  boss_charge: { path: 'sounds/boss_charge.wav', volume: 0.7, audio: null },
+  boss_teleport: { path: 'sounds/boss_teleport.wav', volume: 0.6, audio: null },
+  boss_soul_drain: { path: 'sounds/boss_soul_drain.wav', volume: 0.7, audio: null },
+
+  // --- UI & PROGRESSION SOUNDS ---
+  level_up: { path: 'sounds/level_up.wav', volume: 0.7, audio: null },
+  upgrade_select: { path: 'sounds/upgrade_select.wav', volume: 0.5, audio: null },
+  jackpot_spin: { path: 'sounds/jackpot_spin.wav', volume: 0.6, audio: null, loop: true }, // Looping spin sound
+  jackpot_win: { path: 'sounds/jackpot_win.wav', volume: 0.8, audio: null },
+  jackpot_lose: { path: 'sounds/jackpot_lose.wav', volume: 0.5, audio: null },
+  wave_clear: { path: 'sounds/wave_clear.wav', volume: 0.7, audio: null },
+  draco_found: { path: 'sounds/draco_found.wav', volume: 0.9, audio: null },
+  draco_roar: { path: 'sounds/draco_roar.wav', volume: 0.8, audio: null },
+  game_over: { path: 'sounds/game_over.wav', volume: 0.7, audio: null },
+};
+
+// Function to preload all sound effects
+function preloadSounds() {
+  for (const key in soundEffects) {
+    const sound = soundEffects[key];
+    sound.audio = new Audio(sound.path);
+    sound.audio.volume = sound.volume;
+    if (sound.loop) {
+      sound.audio.loop = true;
+    }
+  }
+}
+
+// Function to play a sound effect
+function playSound(key, loop = false) {
+  const sound = soundEffects[key];
+  if (!sound || !sound.audio) {
+    console.warn(`Sound effect "${key}" not found or not preloaded.`);
+    return;
+  }
+
+  if (sound.loop && !loop) {
+      sound.audio.loop = false;
+  } else if (!sound.loop && loop) {
+      sound.audio.loop = true;
+  }
+
+  if (!loop && !sound.audio.paused && !sound.audio.loop) {
+    sound.audio.currentTime = 0;
+  }
+
+  sound.audio.play().catch(error => {
+    // console.warn(`Autoplay prevented for sound "${key}":`, error);
+  });
+}
+
+// Function to stop a looping sound
+function stopSound(key) {
+  const sound = soundEffects[key];
+  if (sound && sound.audio) {
+    sound.audio.pause();
+    sound.audio.currentTime = 0;
+    sound.audio.loop = false;
+  }
+}
+
+// ─────────────────────────────────────────
+//  CONSTANTS
+// ─────────────────────────────────────────
 const PLAYER_R = 18;
 const BULLET_R = 4;
 const BASE_FIRE_RATE = 160; // ms
 const PLAYER_SAFE_ZONE = 300; // Distance from player center before monsters teleport
 const MONSTER_TELEPORT_MIN_DIST_SQ = 10000; // Monsters won't teleport too close to player
 
-// --- WEAPON DEFINITIONS ---
+// ─────────────────────────────────────────
+//  WEAPON DEFINITIONS
+// ─────────────────────────────────────────
 const WEAPONS = {
   pistol: {
     name: 'PISTOL', color: '#dddddd', baseAmmo: 12, baseFireRate: 300, baseDamage: 1,
@@ -62,15 +147,12 @@ const WEAPONS = {
 // ─────────────────────────────────────────
 //  JACKPOT WHEEL WEAPON SLOTS
 // ─────────────────────────────────────────
-// Defines what the player can win from the jackpot wheel
 const WEAPON_WHEEL_SLOTS = [
     { type: 'weapon', id: 'pistol' },
     { type: 'weapon', id: 'smg' },
     { type: 'weapon', id: 'shotgun' },
     { type: 'weapon', id: 'micro_draco' },
-    // Draco is a special case, might be awarded via pickup or specific upgrade path
-    // { type: 'weapon', id: 'draco' },
-    { type: 'upgrade_points', amount: 5 }, // Example for other rewards
+    { type: 'upgrade_points', amount: 5 },
     { type: 'luck', amount: 3 },
 ];
 
@@ -79,24 +161,19 @@ const WEAPON_WHEEL_SLOTS = [
 //  ATTACHMENT DEFINITIONS
 // ─────────────────────────────────────────
 const ATTACHMENTS = {
-  // Pistol Attachments
   extended_mag_pistol: { name: 'EXTENDED MAG', desc: '+50% Max Ammo', tier: 'rare', apply: s => { s.upgrades.ammoMult = (s.upgrades.ammoMult||1) * 1.5; } },
   laser_sight_pistol:  { name: 'LASER SIGHT', desc: '-15% Spread', tier: 'rare', apply: s => { s.upgrades.spreadMult = (s.upgrades.spreadMult||1) * 0.85; } },
   auto_switch_glock:   { name: 'AUTO SWITCH', desc: 'Enables full auto', tier: 'special', apply: s => { s.upgrades.auto_fire = true; } },
 
-  // SMG Attachments
   extended_mag_smg:    { name: 'EXTENDED MAG', desc: '+50% Max Ammo', tier: 'rare', apply: s => { s.upgrades.ammoMult = (s.upgrades.ammoMult||1) * 1.5; } },
   laser_sight_smg:     { name: 'LASER SIGHT', desc: '-15% Spread', tier: 'rare', apply: s => { s.upgrades.spreadMult = (s.upgrades.spreadMult||1) * 0.85; } },
 
-  // Shotgun Attachments
   extended_mag_shotgun:{ name: 'EXTENDED MAG', desc: '+50% Max Ammo', tier: 'rare', apply: s => { s.upgrades.ammoMult = (s.upgrades.ammoMult||1) * 1.5; } },
   choke:               { name: 'CHOKE', desc: '-25% Spread (tightens spread)', tier: 'special', apply: s => { s.upgrades.spreadMult = (s.upgrades.spreadMult||1) * 0.75; } },
 
-  // Micro Draco Attachments
   extended_mag_draco:  { name: 'EXTENDED MAG', desc: '+50% Max Ammo', tier: 'epic', apply: s => { s.upgrades.ammoMult = (s.upgrades.ammoMult||1) * 1.5; } },
   draco_scope:         { name: 'DRACO SCOPE', desc: '+10% Crit Chance', tier: 'epic', apply: s => { s.upgrades.critChance = (s.upgrades.critChance||0) + 0.10; } },
 
-  // Draco Mythic Upgrades (These are special, not really "attachments" but handled similarly)
   draco_breath: { name: "DRAGON'S BREATH", desc: 'Wider flame, scorches row of zombies', tier: 'mythic', apply: s => { s.upgrades.draco_breath = true; } },
   draco_scales: { name: 'ANCIENT SCALES', desc: 'Every 8 kills, regen 15 HP', tier: 'mythic', apply: s => { s.upgrades.draco_scales = true; } },
   draco_wings:  { name: 'INFERNAL WINGS', desc: 'Kill → brief speed surge', tier: 'mythic', apply: s => { s.upgrades.draco_wings = true; } },
@@ -108,7 +185,6 @@ const ATTACHMENTS = {
 //  UPGRADE POOL (Combined with Attachments)
 // ─────────────────────────────────────────
 const UPGRADE_POOL = [
-  // General Upgrades
   { id:'dmg1',      icon:'🔴', name:'HOLLOW POINT',       desc:'+25% bullet damage',               tier:'common', minLuck:0,  apply: s=>{ s.upgrades.damage = (s.upgrades.damage||1)*1.25; } },
   { id:'dmg2',      icon:'💀', name:'ARMOR PIERCE',       desc:'+50% damage, ignores armor',        tier:'rare',   minLuck:10, apply: s=>{ s.upgrades.damage = (s.upgrades.damage||1)*1.5; } },
   { id:'fire1',     icon:'⚡', name:'HAIR TRIGGER',       desc:'-20% fire delay',                   tier:'common', minLuck:0,  apply: s=>{ s.upgrades.fireRate = (s.upgrades.fireRate||1)*0.80; } },
@@ -120,25 +196,21 @@ const UPGRADE_POOL = [
   { id:'freeze1',   icon:'❄', name:'CRYO ROUNDS',         desc:'Bullets slow zombies -30%',         tier:'epic',   minLuck:12, apply: s=>{ s.upgrades.cryo = true; } },
   { id:'toxic1',    icon:'☠', name:'TOXIC ROUNDS',        desc:'Bullets poison zombies (DoT)',      tier:'epic',   minLuck:12, apply: s=>{ s.upgrades.toxic = true; } },
 
-  // Attachments (will be filtered by current weapon)
-  // Pistol
+  // Attachments
   { id:'extended_mag_pistol', icon: '📦', name: ATTACHMENTS.extended_mag_pistol.name, desc: ATTACHMENTS.extended_mag_pistol.desc, tier: ATTACHMENTS.extended_mag_pistol.tier, minLuck: 0, apply: ATTACHMENTS.extended_mag_pistol.apply },
   { id:'laser_sight_pistol', icon: '🎯', name: ATTACHMENTS.laser_sight_pistol.name, desc: ATTACHMENTS.laser_sight_pistol.desc, tier: ATTACHMENTS.laser_sight_pistol.tier, minLuck: 5, apply: ATTACHMENTS.laser_sight_pistol.apply },
   { id:'auto_switch_glock', icon: '🔫', name: ATTACHMENTS.auto_switch_glock.name, desc: ATTACHMENTS.auto_switch_glock.desc, tier: ATTACHMENTS.auto_switch_glock.tier, minLuck: 15, apply: ATTACHMENTS.auto_switch_glock.apply },
 
-  // SMG
   { id:'extended_mag_smg', icon: '📦', name: ATTACHMENTS.extended_mag_smg.name, desc: ATTACHMENTS.extended_mag_smg.desc, tier: ATTACHMENTS.extended_mag_smg.tier, minLuck: 0, apply: ATTACHMENTS.extended_mag_smg.apply },
   { id:'laser_sight_smg', icon: '🎯', name: ATTACHMENTS.laser_sight_smg.name, desc: ATTACHMENTS.laser_sight_smg.desc, tier: ATTACHMENTS.laser_sight_smg.tier, minLuck: 5, apply: ATTACHMENTS.laser_sight_smg.apply },
 
-  // Shotgun
   { id:'extended_mag_shotgun', icon: '📦', name: ATTACHMENTS.extended_mag_shotgun.name, desc: ATTACHMENTS.extended_mag_shotgun.desc, tier: ATTACHMENTS.extended_mag_shotgun.tier, minLuck: 0, apply: ATTACHMENTS.extended_mag_shotgun.apply },
   { id:'choke', icon: '🪶', name: ATTACHMENTS.choke.name, desc: ATTACHMENTS.choke.desc, tier: ATTACHMENTS.choke.tier, minLuck: 8, apply: ATTACHMENTS.choke.apply },
 
-  // Micro Draco
   { id:'extended_mag_draco', icon: '📦', name: ATTACHMENTS.extended_mag_draco.name, desc: ATTACHMENTS.extended_mag_draco.desc, tier: ATTACHMENTS.extended_mag_draco.tier, minLuck: 0, apply: ATTACHMENTS.extended_mag_draco.apply },
   { id:'draco_scope', icon: '🔭', name: ATTACHMENTS.draco_scope.name, desc: ATTACHMENTS.draco_scope.desc, tier: ATTACHMENTS.draco_scope.tier, minLuck: 12, apply: ATTACHMENTS.draco_scope.apply },
 
-  // Draco Mythic Upgrades (handled as special upgrades)
+  // Draco Mythic Upgrades
   { id:'draco_breath', icon: '🐉', name: ATTACHMENTS.draco_breath.name, desc: ATTACHMENTS.draco_breath.desc, tier: ATTACHMENTS.draco_breath.tier, minLuck: 5, apply: ATTACHMENTS.draco_breath.apply },
   { id:'draco_scales', icon: '🛡', name: ATTACHMENTS.draco_scales.name, desc: ATTACHMENTS.draco_scales.desc, tier: ATTACHMENTS.draco_scales.tier, minLuck: 5, apply: ATTACHMENTS.draco_scales.apply },
   { id:'draco_wings',  icon: '🜂', name: ATTACHMENTS.draco_wings.name, desc: ATTACHMENTS.draco_wings.desc, tier: ATTACHMENTS.draco_wings.tier, minLuck: 5, apply: ATTACHMENTS.draco_wings.apply },
@@ -198,27 +270,27 @@ const ZOMBIE_TYPES = {
 function makeState() {
   return {
     player: {
-      x: 0, y: 0, angle: 0, // Start at 0,0 for infinite map
+      x: 0, y: 0, angle: 0,
       hp: 100, maxHp: 100,
       ammo: 12, reloading: false, reloadTimer: 0,
       speed: 3.6, speedBoost: 0,
       invincible: 0,
       weapon: 'pistol', // Starter weapon is pistol
       hasDraco: false,
-      dracoWeaponSlot: null, // To store the specific Draco weapon instance
+      dracoWeaponSlot: null,
+      ownedWeapons: ['pistol', 'smg', 'shotgun'], // Explicitly define starting weapons
 
-      // Leveling system
       playerLevel: 1,
       xp: 0,
-      xpToLevelUp: 100, // Initial XP needed
+      xpToLevelUp: 100,
     },
     upgrades: {
       damage:1, fireRate:1, critChance:0, critMult:1, pierce:0, reload:1,
-      ammoMult:1, spreadMult:1, // Added spreadMult
-      cryo: false, toxic: false, auto_fire: false, // status effects
-      draco_breath: false, draco_scales: false, draco_wings: false, draco_wideRoar: false // Draco specific
+      ammoMult:1, spreadMult:1,
+      cryo: false, toxic: false, auto_fire: false,
+      draco_breath: false, draco_scales: false, draco_wings: false, draco_wideRoar: false
     },
-    appliedUpgrades: [], // Stores IDs of applied upgrades
+    appliedUpgrades: [],
     luck: 0,
     score: 0, kills: 0, bloodSpilled: 0,
     combo: 0, comboTimer: 0,
@@ -232,25 +304,22 @@ function makeState() {
     dracoKillStreak: 0,
     totalDracoKills: 0,
 
-    // Boss fight specific
     currentBoss: null,
     bossActive: false,
     bossHealthBarVisible: false,
 
-    // entities
     bullets: [], zombies: [], particles: [], pickups: [],
     corpses: [], burnMarks: [], flashes: [], roarBlasts: [],
 
-    // camera
-    cam: { x:0, y:0 }, // Camera starts at 0,0
+    cam: { x:0, y:0 },
 
-    // input
     keys: {}, mouse: { x:0, y:0, down:false },
 
-    // Jackpot Wheel state
     jackpotWheelVisible: false,
     jackpotSpinning: false,
     jackpotResult: null,
+
+    globalVolume: 0.8, // Example: 80% global volume
   };
 }
 let G = makeState();
@@ -262,9 +331,10 @@ window.addEventListener('keydown', e => {
   G.keys[e.key.toLowerCase()] = true;
   if (e.key.toLowerCase() === 'r') tryReload();
   if (e.key.toLowerCase() === 'q') switchWeapon();
-  if (e.key.toLowerCase() === ' ') { // Spacebar for special actions or maybe firing?
+  if (e.key.toLowerCase() === ' ') {
     if (G.player.weapon === 'draco' && G.upgrades.draco_breath) {
       // Implement Draco Breath action if available
+      // playSound('draco_breath_effect');
     }
   }
   e.preventDefault();
@@ -273,7 +343,13 @@ window.addEventListener('keyup',   e => { G.keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('mousemove',e => { G.mouse.x = e.clientX; G.mouse.y = e.clientY; });
 canvas.addEventListener('mousedown',e => {
   if(e.button===0) G.mouse.down = true;
-  if(G.state === 'playing' || G.state === 'waveComplete') tryShoot(); // Shoot on click
+  if(G.state === 'playing' || G.state === 'waveComplete') {
+      tryShoot();
+      // Play shoot sound when shooting
+      if (G.player.ammo > 0 && !G.player.reloading) {
+          playSound('shoot');
+      }
+  }
 });
 canvas.addEventListener('mouseup',  e => { if(e.button===0) G.mouse.down = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -289,13 +365,7 @@ function rndInt(min,max){ return Math.floor(rnd(min,max+1)); }
 function chance(p){ return Math.random()<p; }
 function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
 function luckScale(base, luckVal){ return base * (1 + luckVal * 0.03); }
-function clampToMap(x, y, radius) {
-    // For infinite map, we don't clamp to fixed boundaries.
-    // However, we might want to keep entities within a certain radius of the player
-    // to prevent them from going *too* far off-screen and causing performance issues.
-    // For now, we'll let them roam freely.
-    return { x, y };
-}
+function clampToMap(x, y, radius) { return { x, y }; }
 
 // ─────────────────────────────────────────
 //  PARTICLES
@@ -322,7 +392,6 @@ function spawnBlood(x,y,count=8,big=false){
     const size=big?rnd(3,7):rnd(1.5,4);
     G.particles.push(new Particle(x,y,Math.cos(a)*spd,Math.sin(a)*spd,rndInt(20,45),size,'#cc0000',0.06));
   }
-  // ground splatter
   for(let i=0;i<(big?5:2);i++){
     const ox=rnd(-15,15), oy=rnd(-15,15);
     G.burnMarks.push({ x:x+ox, y:y+oy, r:big?rnd(8,20):rnd(4,10), color:'rgba(100,0,0,0.45)', life:1200, maxLife:1200 });
@@ -364,15 +433,13 @@ function getWeaponData(){
   const p = G.player;
   const baseWeapon = WEAPONS[p.weapon];
 
-  // Handle Draco weapon slot specifically
   let currentWeapon = baseWeapon;
   if (p.weapon === 'draco' && p.dracoWeaponSlot) {
-      currentWeapon = p.dracoWeaponSlot; // Use the specific Draco instance if available
+      currentWeapon = p.dracoWeaponSlot;
   }
 
   const u = G.upgrades;
 
-  // Base stats
   let damage = currentWeapon.baseDamage;
   let fireRate = currentWeapon.baseFireRate;
   let maxAmmo = currentWeapon.baseAmmo;
@@ -381,34 +448,30 @@ function getWeaponData(){
   let critChance = currentWeapon.critChance;
   let critMult = currentWeapon.critMult;
 
-  // Apply general upgrades
   damage *= (u.damage || 1);
   fireRate *= (u.fireRate || 1);
   maxAmmo = Math.floor(maxAmmo * (u.ammoMult || 1));
-  spread *= (u.spreadMult || 1); // Apply spread multiplier
+  spread *= (u.spreadMult || 1);
   pierce += (u.pierce || 0);
   critChance += (u.critChance || 0);
   critMult *= (u.critMult || 1);
 
-  // Apply weapon-specific upgrades/attachments
   if (p.weapon === 'pistol') {
     if (u.auto_fire) {
-      fireRate = Math.max(50, fireRate * 0.5); // Make it fully auto, capped fire rate
-      maxAmmo = Math.floor(maxAmmo * 1.2); // Small ammo bonus for auto
+      fireRate = Math.max(50, fireRate * 0.5);
+      maxAmmo = Math.floor(maxAmmo * 1.2);
     }
-    // Spread multiplier is handled by G.upgrades.spreadMult, which applies to all weapons if defined
   }
   if (p.weapon === 'smg' && u.spreadMult !== undefined) spread *= u.spreadMult;
-  if (p.weapon === 'shotgun' && u.spreadMult !== undefined) spread *= u.spreadMult; // Choke effect
+  if (p.weapon === 'shotgun' && u.spreadMult !== undefined) spread *= u.spreadMult;
 
-  // Clamp values
   critChance = Math.min(0.95, critChance);
-  spread = Math.max(0.01, spread); // Ensure spread is not zero or negative
+  spread = Math.max(0.01, spread);
 
   return {
-    ...currentWeapon, // Spread base properties
+    ...currentWeapon,
     damage, fireRate, maxAmmo, spread, pierce, critChance, critMult,
-    isDraco: currentWeapon.isDraco, // Ensure this is correctly set
+    isDraco: currentWeapon.isDraco,
     igniteChance: currentWeapon.igniteChance,
     roarChance: currentWeapon.roarChance,
     pellets: currentWeapon.pellets,
@@ -417,7 +480,6 @@ function getWeaponData(){
 
 function applyWeaponSpecificUpgrades(weaponId, upgradesState) {
     const weaponUpgrades = {};
-    // General upgrades
     weaponUpgrades.damage = WEAPONS[weaponId].baseDamage;
     weaponUpgrades.fireRate = WEAPONS[weaponId].baseFireRate;
     weaponUpgrades.maxAmmo = WEAPONS[weaponId].baseAmmo;
@@ -426,7 +488,6 @@ function applyWeaponSpecificUpgrades(weaponId, upgradesState) {
     weaponUpgrades.critChance = WEAPONS[weaponId].critChance;
     weaponUpgrades.critMult = WEAPONS[weaponId].critMult;
 
-    // Apply general upgrades from G.upgrades
     weaponUpgrades.damage *= (upgradesState.damage || 1);
     weaponUpgrades.fireRate *= (upgradesState.fireRate || 1);
     weaponUpgrades.maxAmmo = Math.floor(weaponUpgrades.maxAmmo * (upgradesState.ammoMult || 1));
@@ -435,16 +496,12 @@ function applyWeaponSpecificUpgrades(weaponId, upgradesState) {
     weaponUpgrades.critChance += (upgradesState.critChance || 0);
     weaponUpgrades.critMult *= (upgradesState.critMult || 1);
 
-    // Apply weapon-specific upgrades/attachments
     if (weaponId === 'pistol') {
         if (upgradesState.auto_fire) {
             weaponUpgrades.fireRate = Math.max(50, weaponUpgrades.fireRate * 0.5);
             weaponUpgrades.maxAmmo = Math.floor(weaponUpgrades.maxAmmo * 1.2);
         }
-        // Spread multiplier is handled by G.upgrades.spreadMult, which applies to all weapons if defined
     }
-    // Add other weapon-specific logic here if needed
-
     return weaponUpgrades;
 }
 
@@ -457,33 +514,35 @@ function tryReload(){
   p.reloading = true;
   const reloadTime = (p.weapon === 'shotgun' ? 900 : 600) * (G.upgrades.reload||1);
   p.reloadTimer = reloadTime;
+  playSound('reload');
 }
 
 function switchWeapon(){
   const p = G.player;
   const currentWeaponId = p.weapon;
-  const availableWeapons = Object.keys(WEAPONS);
+  // Filter weapons to only include those the player owns or starts with
+  const ownedWeaponIds = ['pistol', 'smg', 'shotgun', ...(p.ownedWeapons || [])];
+  const availableWeapons = Object.keys(WEAPONS).filter(weaponId => ownedWeaponIds.includes(weaponId));
 
   let nextWeaponId = currentWeaponId;
   let currentIndex = availableWeapons.indexOf(currentWeaponId);
 
-  // Cycle through weapons
+  let attempts = 0; // Safety break for infinite loops
   do {
       currentIndex = (currentIndex + 1) % availableWeapons.length;
       nextWeaponId = availableWeapons[currentIndex];
+      attempts++;
   } while (
       // Skip Draco if player doesn't have it equipped or found
       (nextWeaponId === 'draco' && !p.hasDraco) ||
-      // Skip Micro Draco if player doesn't have it
-      (nextWeaponId === 'micro_draco' && !WEAPONS[nextWeaponId]) || // Check if micro_draco is defined
       // Skip Glock auto if player hasn't unlocked the attachment
-      (nextWeaponId === 'pistol' && WEAPONS.pistol.attachments.includes('auto_switch_glock') && !G.upgrades.auto_fire)
+      (nextWeaponId === 'pistol' && WEAPONS.pistol.attachments.includes('auto_switch_glock') && !G.upgrades.auto_fire) &&
+      attempts < availableWeapons.length * 2 // Safety break
   );
 
   p.weapon = nextWeaponId;
-  // Set ammo to max for new weapon
   p.ammo = getWeaponData().maxAmmo;
-  p.reloading = false; // Cancel any current reload
+  p.reloading = false;
   p.reloadTimer = 0;
 }
 
@@ -492,20 +551,17 @@ function tryShoot(){
   const wd = getWeaponData();
   const now = performance.now();
 
-  // Check if auto-fire is enabled for pistol
   const isAutoPistol = (p.weapon === 'pistol' && G.upgrades.auto_fire);
 
   if(p.reloading) return;
   if(p.ammo <= 0){
-    if (!p.reloading) tryReload(); // Only try to reload if not already reloading
+    if (!p.reloading) tryReload();
     return;
   }
   if(now - G.lastFire < wd.fireRate) return;
 
-  // Draco-specific checks
   if (wd.isDraco) {
-    // Draco has ignite and roar chances
-    if (chance(wd.igniteChance)) { /* Ignite logic handled by bullet */ }
+    if (chance(wd.igniteChance)) { }
     if (chance(wd.roarChance + (G.upgrades.draco_wideRoar ? 0.06 : 0))) {
       triggerDraconicRoar(p.x, p.y);
     }
@@ -521,7 +577,6 @@ function tryShoot(){
     const bx = p.x + Math.cos(angle)*28;
     const by = p.y + Math.sin(angle)*28;
 
-    // Add bullet properties
     const bulletProps = {
       x:bx, y:by,
       vx: Math.cos(angle)*12,
@@ -534,10 +589,10 @@ function tryShoot(){
       color: wd.bulletColor,
       trailColor: wd.trailColor,
       isDraco: wd.isDraco,
-      ignited: wd.isDraco && chance(wd.igniteChance), // Assign ignite chance here
+      ignited: wd.isDraco && chance(wd.igniteChance),
       cryo: G.upgrades.cryo || false,
       toxic: G.upgrades.toxic || false,
-      hitIds: new Set(), // To prevent hitting the same zombie multiple times per bullet
+      hitIds: new Set(),
     };
     G.bullets.push(bulletProps);
   }
@@ -545,16 +600,14 @@ function tryShoot(){
   p.ammo--;
   G.screenShake = Math.max(G.screenShake, wd.isDraco ? 5 : 2);
 
-  // Muzzle flash
   G.flashes.push({
     x: p.x+Math.cos(p.angle)*30,
     y: p.y+Math.sin(p.angle)*30,
     life:1, angle: p.angle, isDraco: wd.isDraco
   });
 
-  // If it's an auto pistol, allow shooting again quickly if ammo is available
   if (isAutoPistol && p.ammo > 0) {
-      G.lastFire = now - wd.fireRate + 50; // Allow rapid firing by reducing the cooldown slightly
+      G.lastFire = now - wd.fireRate + 50;
   }
 }
 
@@ -565,16 +618,16 @@ function triggerDraconicRoar(x,y){
   G.screenShake = Math.max(G.screenShake, 14);
   for(let i=0;i<30;i++) spawnEmbers(x,y);
   showWaveAnnounce('🐉 DRACONIC ROAR 🐉', '#ff8c00');
+  playSound('draco_roar');
 
-  // Damage all zombies in range
   for(let i=G.zombies.length-1;i>=0;i--){
     const z=G.zombies[i];
     if(dist2(x,y,z.x,z.y)<radius*radius){
       const angle2=Math.atan2(z.y-y,z.x-x);
-      z.x += Math.cos(angle2)*80; // Push them back
+      z.x += Math.cos(angle2)*80;
       z.y += Math.sin(angle2)*80;
-      z.hp -= 999; // Vaporize
-      z.ignited = true; // Ignite them
+      z.hp -= 999;
+      z.ignited = true;
       z.igniteTicks = 120;
     }
   }
@@ -589,27 +642,23 @@ function getZombieTypeForWave(wave){
   if(wave<4){ return roll<0.7?'walker':'runner'; }
   if(wave<6){ if(roll<0.5) return 'walker'; if(roll<0.8) return 'runner'; return 'brute'; }
   if(wave<8) { if(roll<0.3) return 'walker'; if(roll<0.6) return 'runner'; if(roll<0.85) return 'brute'; return 'exploder'; }
-  // Higher waves get more variety and tougher enemies
   if(roll<0.2) return 'walker';
   if(roll<0.45) return 'runner';
   if(roll<0.7) return 'brute';
   if(roll<0.9) return 'exploder';
-  return 'brute'; // More brutes in later waves
+  return 'brute';
 }
 
 function spawnZombie(){
   const p = G.player;
   let x, y;
 
-  // Try to spawn zombies further away from the player for infinite map
-  const spawnRadius = Math.max(canvas.width, canvas.height) * 1.5 + G.wave * 30; // Spawn further as wave increases
+  const spawnRadius = Math.max(canvas.width, canvas.height) * 1.5 + G.wave * 30;
   const angle = Math.random() * Math.PI * 2;
   x = p.x + Math.cos(angle) * spawnRadius;
   y = p.y + Math.sin(angle) * spawnRadius;
 
-  // Ensure zombies don't spawn *exactly* on the player
   if (dist2(x, y, p.x, p.y) < PLAYER_SAFE_ZONE * PLAYER_SAFE_ZONE) {
-      // Reposition further away if too close
       const angleToPlayer = Math.atan2(y - p.y, x - p.x);
       x = p.x + Math.cos(angleToPlayer) * (PLAYER_SAFE_ZONE + rnd(50, 150));
       y = p.y + Math.sin(angleToPlayer) * (PLAYER_SAFE_ZONE + rnd(50, 150));
@@ -617,7 +666,7 @@ function spawnZombie(){
 
   const typeName = getZombieTypeForWave(G.wave);
   const tpl = ZOMBIE_TYPES[typeName];
-  const wm = 1 + G.wave*0.12; // Wave multiplier for stats
+  const wm = 1 + G.wave*0.12;
 
   G.zombies.push({
     id: Math.random(),
@@ -641,7 +690,6 @@ function spawnZombie(){
     bloodTrail: tpl.dropBloodTrail,
     bloodTrailTimer: 0,
     hitFlash: 0,
-    // Boss specific properties (if it's a boss)
     isBoss: false,
   });
   G.zombiesSpawned++;
@@ -649,25 +697,22 @@ function spawnZombie(){
 
 function teleportMonsters(){
   const p = G.player;
-  const playerDistSq = dist2(p.x, p.y, 0, 0); // Distance from origin (or a central point)
+  const playerDistSq = dist2(p.x, p.y, 0, 0);
 
-  // Only teleport if player is significantly far from origin
   if (playerDistSq < PLAYER_SAFE_ZONE * PLAYER_SAFE_ZONE) return;
 
   for (let i = G.zombies.length - 1; i >= 0; i--) {
     const z = G.zombies[i];
-    if (z.isBoss) continue; // Don't teleport bosses
+    if (z.isBoss) continue;
 
     const distToPlayerSq = dist2(z.x, z.y, p.x, p.y);
 
-    // If a monster is too far from the player, reposition it closer
     if (distToPlayerSq > (PLAYER_SAFE_ZONE * 1.8) * (PLAYER_SAFE_ZONE * 1.8) && distToPlayerSq > MONSTER_TELEPORT_MIN_DIST_SQ) {
       const angle = Math.random() * Math.PI * 2;
-      // Reposition it within a radius around the player
       const repositionRadius = PLAYER_SAFE_ZONE + rnd(50, 150);
       z.x = p.x + Math.cos(angle) * repositionRadius;
       z.y = p.y + Math.sin(angle) * repositionRadius;
-      z.attackTimer = Math.max(0, z.attackTimer - 30); // Reduce attack timer slightly to prevent instant attack on teleport
+      z.attackTimer = Math.max(0, z.attackTimer - 30);
     }
   }
 }
@@ -681,7 +726,6 @@ function trySpawnPickup(x,y,lucky){
   const luckFactor = 1 + G.luck*0.02;
   const roll = Math.random();
 
-  // Special pickup logic based on luck and wave
   if(G.wave>=5 && !G.player.hasDraco && chance(luckScale(0.04, G.luck))){
     G.pickups.push({ x, y, type:'draco', life:800, bob:Math.random()*Math.PI*2 });
     return;
@@ -701,25 +745,25 @@ function trySpawnPickup(x,y,lucky){
 // ─────────────────────────────────────────
 function startBossFight(bossId) {
     G.currentBoss = BOSSES[bossId];
-    G.currentBoss.id = Math.random(); // Unique ID for boss
-    G.currentBoss.x = 0; // Boss starts at origin
+    G.currentBoss.id = Math.random();
+    G.currentBoss.x = 0;
     G.currentBoss.y = 0;
-    G.currentBoss.hp = G.currentBoss.hp; // Ensure starting HP
+    G.currentBoss.hp = G.currentBoss.hp;
     G.currentBoss.maxHp = G.currentBoss.hp;
     G.currentBoss.isBoss = true;
     G.currentBoss.attackTimer = 0;
-    G.currentBoss.targetAngle = 0; // For movement
-    G.currentBoss.specialTimer = 0; // For abilities
-    G.currentBoss.wobble = Math.random()*Math.PI*2; // Add wobble for boss too
-    G.currentBoss.wobbleSpd = rnd(0.04,0.08); // Slower wobble for boss
+    G.currentBoss.targetAngle = 0;
+    G.currentBoss.specialTimer = 0;
+    G.currentBoss.wobble = Math.random()*Math.PI*2;
+    G.currentBoss.wobbleSpd = rnd(0.04,0.08);
 
-    // Add boss to the zombies list
     G.zombies.push(G.currentBoss);
     G.bossActive = true;
     G.bossHealthBarVisible = true;
     document.getElementById('boss-name').textContent = G.currentBoss.name;
     document.getElementById('boss-health-bar-container').classList.add('visible');
     showWaveAnnounce(`BOSS APPROACHING: ${G.currentBoss.name}`, '#ff4444');
+    playSound('boss_spawn');
 }
 
 function endBossFight() {
@@ -727,7 +771,6 @@ function endBossFight() {
     G.bossHealthBarVisible = false;
     document.getElementById('boss-health-bar-container').classList.remove('visible');
     G.currentBoss = null;
-    // Continue to end wave logic
     endWave();
 }
 
@@ -737,90 +780,91 @@ function handleBossAbilities() {
     const p = G.player;
     const distToPlayer = dist(boss.x, boss.y, p.x, p.y);
 
-    // Boss movement (simplified)
-    if (!boss.isCharging && !boss.isTeleporting) { // Don't move during charge or teleport
+    if (!boss.isCharging && !boss.isTeleporting) {
         const angleToPlayer = Math.atan2(p.y - boss.y, p.x - boss.x);
         boss.targetAngle = angleToPlayer;
         boss.x += Math.cos(angleToPlayer) * boss.speed;
         boss.y += Math.sin(angleToPlayer) * boss.speed;
     }
 
-    // Boss wobble
     boss.wobble += boss.wobbleSpd;
 
-    // Attack timers
     if (boss.attackTimer > 0) boss.attackTimer--;
     if (boss.specialTimer > 0) boss.specialTimer--;
 
-    // Execute abilities
     for (const ability of boss.abilities) {
-        if (boss.attackTimer === 0 && distToPlayer < boss.radius * 1.8) { // Attack range check (slightly larger)
+        if (boss.attackTimer === 0 && distToPlayer < boss.radius * 1.8) {
             if (ability === 'slam' && boss.attackTimer === 0) {
-                boss.attackTimer = boss.attackRate * 1.5; // Longer cooldown for slam
-                boss.isSlamming = true; // Flag for animation/effect
+                boss.attackTimer = boss.attackRate * 1.5;
+                boss.isSlamming = true;
                 G.screenShake = Math.max(G.screenShake, 15);
-                spawnBlood(p.x, p.y, 20, true); // Player takes damage
+                spawnBlood(p.x, p.y, 20, true);
                 p.hp -= boss.damage * 1.2;
-                setTimeout(() => { boss.isSlamming = false; }, 300); // Slam effect duration
-                break; // Only one ability per "attack cycle" for now
+                playSound('boss_slam');
+                setTimeout(() => { boss.isSlamming = false; }, 300);
+                break;
             }
             if (ability === 'spit_acid' && boss.attackTimer === 0) {
                 boss.attackTimer = boss.attackRate * 1.2;
                 boss.isSpitting = true;
                 const acidAng = Math.atan2(p.y - boss.y, p.x - boss.x) + rnd(-0.1, 0.1);
-                G.bullets.push({ // Acid projectile
+                G.bullets.push({
                     x: boss.x + Math.cos(acidAng) * boss.radius,
                     y: boss.y + Math.sin(acidAng) * boss.radius,
                     vx: Math.cos(acidAng) * 10,
                     vy: Math.sin(acidAng) * 10,
-                    damage: boss.damage * 0.8, // Acid does less direct damage but might have DoT
+                    damage: boss.damage * 0.8,
                     pierce: 1, life: 120, color: '#00ff00', trailColor: 'rgba(0,255,0,0.3)', isBossProjectile: true,
-                    isAcid: true, // Mark as acid
+                    isAcid: true,
                 });
+                playSound('boss_acid_spit');
                 setTimeout(() => { boss.isSpitting = false; }, 200);
                 break;
             }
-            if (ability === 'charge' && boss.attackTimer === 0 && distToPlayer > boss.radius * 4) { // Charge when player is further away
+            if (ability === 'charge' && boss.attackTimer === 0 && distToPlayer > boss.radius * 4) {
                 boss.attackTimer = boss.attackRate * 2.5;
                 boss.isCharging = true;
                 boss.chargeAngle = Math.atan2(p.y - boss.y, p.x - boss.x);
                 const chargeSpeed = boss.speed * 5;
-                const chargeDuration = 60; // Frames for charge
+                const chargeDuration = 60;
                 const chargeInterval = setInterval(() => {
                     if (!boss.isCharging || !G.currentBoss) { clearInterval(chargeInterval); return; }
                     boss.x += Math.cos(boss.chargeAngle) * chargeSpeed;
                     boss.y += Math.sin(boss.chargeAngle) * chargeSpeed;
                     if (dist2(boss.x, boss.y, p.x, p.y) < (boss.radius + PLAYER_R) * (boss.radius + PLAYER_R)) {
-                        p.hp -= boss.damage * 1.5; // Collision damage
+                        p.hp -= boss.damage * 1.5;
                         p.invincible = 40;
                         G.screenShake = Math.max(G.screenShake, 12);
-                        boss.isCharging = false; // Stop charging on hit
+                        boss.isCharging = false;
                         clearInterval(chargeInterval);
                     }
                 }, 16);
+                playSound('boss_charge');
                 setTimeout(() => {
-                    if (boss.isCharging) boss.isCharging = false; // Stop if player dodged
+                    if (boss.isCharging) boss.isCharging = false;
                 }, chargeDuration * 16);
                 break;
             }
-            if (ability === 'teleport' && boss.attackTimer === 0 && distToPlayer > boss.radius * 3) { // Teleport when player is far
-                boss.attackTimer = boss.attackRate * 3; // Long cooldown
+            if (ability === 'teleport' && boss.attackTimer === 0 && distToPlayer > boss.radius * 3) {
+                boss.attackTimer = boss.attackRate * 3;
                 boss.isTeleporting = true;
                 const angle = Math.atan2(p.y - boss.y, p.x - boss.x);
-                const teleportDist = distToPlayer * 0.8; // Teleport closer but not too close
+                const teleportDist = distToPlayer * 0.8;
                 boss.x = p.x - Math.cos(angle) * teleportDist + rnd(-50, 50);
                 boss.y = p.y - Math.sin(angle) * teleportDist + rnd(-50, 50);
+                playSound('boss_teleport');
                 setTimeout(() => { boss.isTeleporting = false; }, 400);
                 break;
             }
-            if (ability === 'soul_drain' && boss.specialTimer === 0 && distToPlayer < boss.radius * 2) { // Drain when close
-                boss.specialTimer = boss.attackRate * 4; // Very long cooldown
+            if (ability === 'soul_drain' && boss.specialTimer === 0 && distToPlayer < boss.radius * 2) {
+                boss.specialTimer = boss.attackRate * 4;
                 boss.isDraining = true;
                 const drainAmount = 15;
                 p.hp -= drainAmount;
-                boss.hp += drainAmount * 0.8; // Boss heals slightly
+                boss.hp += drainAmount * 0.8;
                 boss.hp = Math.min(boss.maxHp, boss.hp);
                 G.screenShake = Math.max(G.screenShake, 8);
+                playSound('boss_soul_drain');
                 setTimeout(() => { boss.isDraining = false; }, 500);
                 break;
             }
@@ -839,13 +883,12 @@ function startWave(){
   G.zombiesRemaining = G.zombiesToSpawn;
   G.spawnTimer = 0;
   G.state = 'playing';
-  G.player.ammo = getWeaponData().maxAmmo; // Refill ammo on new wave
+  G.player.ammo = getWeaponData().maxAmmo;
 
-  // Boss fight check
   if (G.wave % 5 === 0) {
     G.bossActive = true;
-    let bossId = `wave_${G.wave}_1`; // Simple boss naming for now
-    if (!BOSSES[bossId]) bossId = Object.keys(BOSSES)[Math.floor(Math.random() * Object.keys(BOSSES).length)]; // Fallback to random boss
+    let bossId = `wave_${G.wave}_1`;
+    if (!BOSSES[bossId]) bossId = Object.keys(BOSSES)[Math.floor(Math.random() * Object.keys(BOSSES).length)];
     startBossFight(bossId);
   } else {
     G.bossActive = false;
@@ -863,48 +906,43 @@ function endWave(){
   G.state = 'waveComplete';
   G.waveTimer = 240;
 
-  // XP gain for leveling up
-  const xpGain = 50 + G.wave * 10; // Gain more XP on later waves
+  const xpGain = 50 + G.wave * 10;
   G.player.xp += xpGain;
   let leveledUp = false;
   while (G.player.xp >= G.player.xpToLevelUp) {
       G.player.xp -= G.player.xpToLevelUp;
       G.player.playerLevel++;
-      G.player.xpToLevelUp = Math.floor(G.player.xpToLevelUp * 1.3); // Increase XP needed for next level
+      G.player.xpToLevelUp = Math.floor(G.player.xpToLevelUp * 1.3);
       leveledUp = true;
   }
 
   if (leveledUp) {
-      openJackpotWheel(); // Open the wheel on level up
-      // Don't immediately start next wave, wait for wheel to close
+      openJackpotWheel();
       return;
   }
 
-  // Luck gain per wave (scaling)
   const luckGain = 1 + Math.floor(G.wave*0.4);
   G.luck += luckGain;
 
-  // Check luck milestones
   checkLuckMilestone();
 
-  // HP regen
   G.player.hp = Math.min(G.player.maxHp, G.player.hp + 15);
 
   if (!G.bossActive) {
     showWaveAnnounce(`WAVE ${G.wave} CLEAR!`, '#39ff14');
+    playSound('wave_clear');
     setTimeout(()=>{ openUpgradeMenu(); }, 1600);
   } else {
-    // Boss defeated
     showWaveAnnounce(`BOSS DEFEATED!`, '#39ff14');
-    G.player.ammo = getWeaponData().maxAmmo; // Full ammo after boss
+    G.player.ammo = getWeaponData().maxAmmo;
     setTimeout(()=>{ openUpgradeMenu(); }, 1600);
   }
 }
 
 function checkLuckMilestone(){
-  const milestones = [10,20,30,50,75,100, 150, 200]; // Added more milestones
+  const milestones = [10,20,30,50,75,100, 150, 200];
   for(const m of milestones){
-    if(G.luck>=m && G.luck-Math.floor(G.wave*0.4)<m){ // Check if we just crossed the milestone
+    if(G.luck>=m && G.luck-Math.floor(G.wave*0.4)<m){
       if(m===10)  showLuckNotify('LUCK SURGES!');
       else if(m===20) showLuckNotify('DRACONIC FORTUNE!');
       else if(m===30) showLuckNotify('✦ LEGENDARY LUCK ✦');
@@ -923,54 +961,43 @@ function openUpgradeMenu(){
 
   subEl.textContent = `LUCK: ${G.luck} — Higher luck unlocks rarer upgrades`;
 
-  // Filter available upgrades based on current weapon and player's Draco status
   let pool = UPGRADE_POOL.filter(u => {
-    // Check if it's a Draco-specific upgrade (mythic tier)
-    if (u.tier === 'mythic' && u.id.startsWith('draco_')) return true; // Draco upgrades are always available if unlocked by luck
+    if (u.tier === 'mythic' && u.id.startsWith('draco_')) return true;
 
-    // Check if it's a weapon-specific attachment
     if (u.id.includes('_')) {
         const parts = u.id.split('_');
-        const weaponName = parts.pop(); // Last part is the weapon name
-        const attachmentType = parts.join('_'); // Rest is the attachment type
+        const weaponName = parts.pop();
+        const attachmentType = parts.join('_');
 
-        // If the attachment is for the current weapon, include it
         if (G.player.weapon === weaponName) return true;
 
-        // Handle general attachments that might apply to multiple weapons
         if (attachmentType === 'extended_mag' && (weaponName === 'pistol' || weaponName === 'smg' || weaponName === 'shotgun')) return true;
         if (attachmentType === 'laser_sight' && (weaponName === 'pistol' || weaponName === 'smg')) return true;
 
-        return false; // Attachment not relevant to current weapon
+        return false;
     }
-
-    // General upgrades are always available
     return true;
   });
 
-  // Filter out already applied upgrades (unless it's a choice between similar upgrades)
-  pool = pool.filter(u => !G.appliedUpgrades.includes(u.id) || u.id === 'dmg1' || u.id === 'fire1'); // Allow stacking common upgrades if desired
+  pool = pool.filter(u => !G.appliedUpgrades.includes(u.id) || u.id === 'dmg1' || u.id === 'fire1');
 
-  // Weight by tier and luck
   function tierWeight(u){
     if(u.tier==='common') return 4;
     if(u.tier==='rare')   return G.luck>=u.minLuck ? 2.5 : 0.5;
     if(u.tier==='epic')   return G.luck>=u.minLuck ? 1.5 : 0.1;
-    if(u.tier==='special') return G.luck>=u.minLuck ? 2.0 : 0.2; // Special tier weighting
+    if(u.tier==='special') return G.luck>=u.minLuck ? 2.0 : 0.2;
     if(u.tier==='mythic') return G.luck>=u.minLuck ? 1.0 : 0.0;
     return 1;
   }
 
-  // Pick 3 unique upgrades
   let chosen = [];
   let attempts = 0;
-  const maxAttempts = 200; // Prevent infinite loops
+  const maxAttempts = 200;
 
   while(chosen.length<3 && attempts<maxAttempts){
     attempts++;
-    if (pool.length === 0) break; // No more upgrades to choose from
+    if (pool.length === 0) break;
 
-    // Weighted random selection
     let totalWeight = pool.reduce((sum, item) => sum + tierWeight(item), 0);
     let randomWeight = Math.random() * totalWeight;
     let selectedItem = null;
@@ -983,16 +1010,16 @@ function openUpgradeMenu(){
         }
     }
 
-    if (!selectedItem) selectedItem = pool[pool.length - 1]; // Fallback
+    if (!selectedItem) selectedItem = pool[pool.length - 1];
 
-    if(chosen.find(c=>c.id===selectedItem.id)) continue; // Already chosen
+    if(chosen.find(c=>c.id===selectedItem.id)) continue;
     chosen.push(selectedItem);
   }
 
   cardsEl.innerHTML = '';
   chosen.forEach(u=>{
     const tier = u.tier;
-    const locked = G.luck < u.minLuck; // Locked if luck is below minimum
+    const locked = G.luck < u.minLuck;
     const card = document.createElement('div');
     card.className = `upgrade-card${u.id.includes('draco')?' draco-card':''}${locked?' locked':''}`;
     card.innerHTML = `
@@ -1014,41 +1041,38 @@ function openUpgradeMenu(){
 }
 
 function applyUpgrade(u){
-  u.apply(G); // Apply the upgrade's effect to G.upgrades
+  u.apply(G);
   G.appliedUpgrades.push(u.id);
+  playSound('upgrade_select');
 
-  // Special handling for Draco weapon setup
   if (u.id === 'draco_breath' || u.id === 'draco_scales' || u.id === 'draco_wings' || u.id === 'draco_exe') {
-      if (!G.player.hasDraco) { // If player just found Draco via upgrade
+      if (!G.player.hasDraco) {
           G.player.hasDraco = true;
-          G.player.weapon = 'draco'; // Switch to Draco
-          G.player.dracoWeaponSlot = { // Create a specific instance for the Draco
-              ...WEAPONS.draco, // Base Draco properties
-              name: WEAPONS.draco.name, // Keep original name
+          G.player.weapon = 'draco';
+          G.player.dracoWeaponSlot = {
+              ...WEAPONS.draco,
+              name: WEAPONS.draco.name,
               isDraco: true,
-              // Initialize base stats to allow upgrades to modify them
               baseDamage: WEAPONS.draco.baseDamage,
               baseFireRate: WEAPONS.draco.baseFireRate,
               baseAmmo: WEAPONS.draco.baseAmmo,
           };
-          // Re-apply Draco-specific upgrades to this instance
           if (G.upgrades.draco_breath) G.player.dracoWeaponSlot.draco_breath = true;
           if (G.upgrades.draco_scales) G.player.dracoWeaponSlot.draco_scales = true;
           if (G.upgrades.draco_wings) G.player.dracoWeaponSlot.draco_wings = true;
-          if (G.upgrades.draco_wideRoar) G.player.dracoWeaponSlot.draco_wideRoar = true; // This is part of draco_exe
+          if (G.upgrades.draco_wideRoar) G.player.dracoWeaponSlot.draco_wideRoar = true;
 
-          G.player.ammo = getWeaponData().maxAmmo; // Set ammo to max for Draco
+          G.player.ammo = getWeaponData().maxAmmo;
+          playSound('draco_found');
       }
   }
 
-  // Recalculate weapon data after applying upgrade
   const wd = getWeaponData();
   if(G.player.ammo > wd.maxAmmo) G.player.ammo = wd.maxAmmo;
 }
 
 function closeUpgradeMenu(){
   document.getElementById('upgrade-menu').classList.remove('visible');
-  // Resume / start next wave after brief delay
   setTimeout(()=>{
     if(G.state==='waveComplete') startWave();
   }, 800);
@@ -1070,7 +1094,7 @@ function drawJackpotWheel() {
     const canvasSize = jackpotCanvas.width;
     const centerX = canvasSize / 2;
     const centerY = canvasSize / 2;
-    const radius = canvasSize / 2 * 0.9; // Slightly smaller radius to fit in canvas
+    const radius = canvasSize / 2 * 0.9;
 
     ctx.clearRect(0, 0, canvasSize, canvasSize);
 
@@ -1082,17 +1106,14 @@ function drawJackpotWheel() {
         const startAngle = angle;
         const endAngle = angle + angleStep;
 
-        // Draw segment arc
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, startAngle, endAngle);
         ctx.lineTo(centerX, centerY);
         ctx.closePath();
 
-        // Alternate colors
         ctx.fillStyle = i % 2 === 0 ? '#e6c300' : '#ccaa00';
         ctx.fill();
 
-        // Draw dividing lines
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1101,7 +1122,6 @@ function drawJackpotWheel() {
         ctx.lineTo(centerX, centerY);
         ctx.stroke();
 
-        // Draw text label
         const labelAngle = startAngle + angleStep / 2;
         const labelRadius = radius * 0.75;
         const labelX = centerX + Math.cos(labelAngle) * labelRadius;
@@ -1109,7 +1129,7 @@ function drawJackpotWheel() {
 
         ctx.save();
         ctx.translate(labelX, labelY);
-        ctx.rotate(labelAngle + PI / 2); // Rotate text to be radial
+        ctx.rotate(labelAngle + PI / 2);
         ctx.textAlign = 'center';
         ctx.font = '8px Press Start 2P, monospace';
         ctx.fillStyle = '#000';
@@ -1117,7 +1137,7 @@ function drawJackpotWheel() {
         let labelText = '';
         const slot = WEAPON_WHEEL_SLOTS[i];
         if (slot.type === 'weapon') {
-            labelText = WEAPONS[slot.id].name.replace('✦', '').replace('✦', ''); // Remove Draco stars for cleaner text
+            labelText = WEAPONS[slot.id].name.replace('✦', '').replace('✦', '');
         } else if (slot.type === 'luck') {
             labelText = `LUCK +${slot.amount}`;
         } else if (slot.type === 'upgrade_points') {
@@ -1133,55 +1153,44 @@ function spinJackpotWheel() {
     wheelSpinning = true;
     document.getElementById('spin-button').disabled = true;
 
-    // Randomly determine spin duration and final stop point
-    const spinDuration = rnd(3000, 5000); // ms
-    const finalStopAngle = rnd(0, 2 * PI); // Where the pointer should ideally stop
+    playSound('jackpot_spin', true);
 
-    // Calculate target rotation to ensure it stops near the pointer
-    // We want the pointer to align with a segment. The pointer is at the top (angle PI/2 or -PI/2).
-    // Let's assume pointer is at top, so we need to stop at an angle that aligns with a segment's center.
+    const spinDuration = rnd(3000, 5000);
+    const finalStopAngle = rnd(0, 2 * PI);
+
     const numSegments = WEAPON_WHEEL_SLOTS.length;
     const angleStep = (2 * PI) / numSegments;
-    let bestStopAngle = 0;
     let closestSegmentIndex = -1;
 
     for (let i = 0; i < numSegments; i++) {
         const segmentCenterAngle = (i * angleStep) + angleStep / 2;
-        // Calculate the difference between segment center and desired stop angle
         let diff = Math.abs(finalStopAngle - segmentCenterAngle);
-        // Handle wrap-around for angles (e.g., 0.1 and 6.18 are close)
         if (diff > PI) diff = 2 * PI - diff;
 
         if (closestSegmentIndex === -1 || diff < Math.abs(finalStopAngle - (closestSegmentIndex * angleStep + angleStep / 2))) {
             closestSegmentIndex = i;
         }
     }
-    // The target angle is the center of the chosen segment
     wheelTargetRotation = (closestSegmentIndex * angleStep) + angleStep / 2;
-
-    // Add some extra full rotations for visual effect
     wheelTargetRotation += rnd(3, 7) * 2 * PI;
 
-    spinSpeed = 0.05; // Initial spin speed
+    spinSpeed = 0.05;
     const startTime = performance.now();
 
     function animateSpin(currentTime) {
         const elapsedTime = currentTime - startTime;
         const progress = Math.min(elapsedTime / spinDuration, 1);
-
-        // Ease-out function for deceleration
         const easedProgress = 1 - Math.pow(1 - progress, 3);
 
-        wheelRotation = wheelTargetRotation * easedProgress; // Move towards target
+        wheelRotation = wheelTargetRotation * easedProgress;
 
         drawJackpotWheel();
 
         if (progress < 1) {
             requestAnimationFrame(animateSpin);
         } else {
-            // Spin finished
-            wheelRotation = wheelTargetRotation; // Ensure it's exactly at the target
-            drawJackpotWheel(); // Final draw
+            wheelRotation = wheelTargetRotation;
+            drawJackpotWheel();
 
             const winningSegmentIndex = Math.round(wheelTargetRotation / angleStep) % numSegments;
             const result = WEAPON_WHEEL_SLOTS[winningSegmentIndex];
@@ -1190,31 +1199,34 @@ function spinJackpotWheel() {
             let resultText = '';
             let resultClass = 'wheel-result';
 
+            stopSound('jackpot_spin');
+
             if (result.type === 'weapon') {
                 const weaponName = WEAPONS[result.id].name;
                 resultText = `YOU WON: ${weaponName}!`;
-                // Add weapon if not already owned
                 if (!G.player.ownedWeapons || !G.player.ownedWeapons.includes(result.id)) {
                     if (!G.player.ownedWeapons) G.player.ownedWeapons = [];
                     G.player.ownedWeapons.push(result.id);
-                    G.player.weapon = result.id; // Switch to the new weapon
-                    G.player.ammo = getWeaponData().maxAmmo; // Refill ammo
+                    G.player.weapon = result.id;
+                    G.player.ammo = getWeaponData().maxAmmo;
                 } else {
-                    // If weapon is already owned, maybe give ammo or bonus
                     G.player.ammo = Math.min(getWeaponData().maxAmmo, G.player.ammo + Math.floor(WEAPONS[result.id].baseAmmo * 0.75));
                     resultText = `YOU WON AMMO FOR ${weaponName}!`;
                 }
+                playSound('jackpot_win');
             } else if (result.type === 'luck') {
                 G.luck += result.amount;
                 resultText = `LUCK +${result.amount}!`;
                 showLuckNotify(`✦ LUCK +${result.amount} ✦`);
+                playSound('jackpot_win');
             } else if (result.type === 'upgrade_points') {
-                // Implement upgrade points system later if needed, for now, maybe give a small bonus
                 G.player.hp = Math.min(G.player.maxHp, G.player.hp + 10);
                 resultText = `BONUS HEALTH!`;
+                playSound('jackpot_win');
             } else {
                 resultText = 'BETTER LUCK NEXT TIME!';
                 resultClass += ' lost';
+                playSound('jackpot_lose');
             }
 
             document.getElementById('wheel-result').textContent = resultText;
@@ -1233,30 +1245,25 @@ function openJackpotWheel() {
     G.jackpotWheelVisible = true;
     G.jackpotSpinning = false;
     G.jackpotResult = null;
-    wheelRotation = 0; // Reset rotation
+    wheelRotation = 0;
     wheelTargetRotation = 0;
     spinSpeed = 0;
     document.getElementById('spin-button').disabled = false;
     document.getElementById('wheel-result').textContent = '';
 
-    // Initialize canvas and draw the wheel
-    jackpotCanvas.width = 300; // Reset canvas size for clarity
+    jackpotCanvas.width = 300;
     jackpotCanvas.height = 300;
     drawJackpotWheel();
+    playSound('level_up');
 }
 
 function closeJackpotWheel() {
     const overlay = document.getElementById('jackpot-wheel-overlay');
     overlay.classList.remove('visible');
     G.jackpotWheelVisible = false;
-    // After closing, potentially start the next wave if it was pending
     if (G.state === 'waveComplete') {
         startWave();
     }
-}
-
-function spinJackpotWheel() {
-    spinJackpotWheel(); // Call the actual spin function
 }
 
 // ─────────────────────────────────────────
@@ -1307,7 +1314,6 @@ function updateHUD(){
   else if(p.ammo<=3 && !p.reloading) hint.textContent='[R] RELOAD';
   else hint.textContent='';
 
-  // Update boss health bar
   const bossBarContainer = document.getElementById('boss-health-bar-container');
   const bossBar = document.getElementById('boss-bar');
   if (G.bossActive && G.currentBoss) {
@@ -1317,7 +1323,6 @@ function updateHUD(){
       bossBarContainer.classList.remove('visible');
   }
 
-  // damage vignette
   const vig = document.getElementById('damage-vignette');
   if(p.hp/p.maxHp < 0.3){
     vig.style.background = `radial-gradient(ellipse at center, transparent 50%, rgba(180,0,0,${0.4-(p.hp/p.maxHp)*0.8}) 100%)`;
@@ -1332,32 +1337,24 @@ function update(){
 
   const p = G.player;
 
-  // ── MOVEMENT ──
   let dx=0, dy=0;
   if(G.keys['w']||G.keys['arrowup'])    dy-=1;
   if(G.keys['s']||G.keys['arrowdown'])  dy+=1;
   if(G.keys['a']||G.keys['arrowleft'])  dx-=1;
   if(G.keys['d']||G.keys['arrowright']) dx+=1;
 
-  // Player speed boost from Draco wings
   const currentSpeed = p.speed + (p.speedBoost > 0 ? 2.5 : 0);
   if(dx||dy){ const l=Math.hypot(dx,dy); p.x+=dx/l*currentSpeed; p.y+=dy/l*currentSpeed; }
 
-  // Player invincible timer
   if(p.invincible>0) p.invincible--;
 
-  // ── CAMERA ──
-  // Camera follows player smoothly, but doesn't have hard map limits
   G.cam.x = lerp(G.cam.x, p.x - canvas.width/2, 0.1);
   G.cam.y = lerp(G.cam.y, p.y - canvas.height/2, 0.1);
 
-  // ── ANGLE ──
   p.angle = Math.atan2(G.mouse.y+G.cam.y - p.y, G.mouse.x+G.cam.x - p.x);
 
-  // ── SHOOT ──
   if(G.mouse.down) tryShoot();
 
-  // ── RELOAD TIMER ──
   if(p.reloading){
     p.reloadTimer -= 16;
     if(p.reloadTimer<=0){
@@ -1366,59 +1363,52 @@ function update(){
     }
   }
 
-  // ── SPAWN ZOMBIES ──
   if(!G.bossActive && G.zombiesSpawned < G.zombiesToSpawn){
     G.spawnTimer++;
-    const interval = Math.max(4, 28 - G.wave*1.5); // Spawn faster on higher waves
+    const interval = Math.max(4, 28 - G.wave*1.5);
     if(G.spawnTimer >= interval){
       G.spawnTimer = 0;
-      const batch = Math.min(1+Math.floor(G.wave/4), G.zombiesToSpawn - G.zombiesSpawned); // Spawn in batches
+      const batch = Math.min(1+Math.floor(G.wave/4), G.zombiesToSpawn - G.zombiesSpawned);
       for(let i=0;i<batch;i++) spawnZombie();
     }
   }
 
-  // ── MONSTER TELEPORTATION ──
   if (!G.bossActive) teleportMonsters();
 
-  // ── BULLETS ──
   for(let i=G.bullets.length-1;i>=0;i--){
     const b=G.bullets[i];
     b.x+=b.vx; b.y+=b.vy; b.life--;
 
-    // Remove bullets that go too far off-screen (performance optimization for infinite map)
     const maxBulletDist = Math.max(canvas.width, canvas.height) * 2;
     if(b.life<=0 || dist2(b.x, b.y, p.x, p.y) > maxBulletDist * maxBulletDist){
       G.bullets.splice(i,1); continue;
     }
 
-    // Hit zombies
     let hitSomething = false;
     for(let j=G.zombies.length-1;j>=0;j--){
       const z=G.zombies[j];
-      if(b.hitIds.has(z.id)) continue; // Already hit this zombie with this bullet
+      if(b.hitIds.has(z.id)) continue;
 
       const r2=(BULLET_R+z.radius)*(BULLET_R+z.radius);
       if(dist2(b.x,b.y,z.x,z.y)<r2){
         b.hitIds.add(z.id);
         b.pierceCount++;
 
-        // Hit effects
         spawnBlood(z.x+rnd(-8,8), z.y+rnd(-8,8), b.crit?12:6, b.crit);
         G.screenShake = Math.max(G.screenShake, b.crit?6:2);
         z.hitFlash = 6;
         z.hp -= b.damage;
+        playSound('zombie_hit');
 
-        // Status effects
         if(b.ignited) { z.ignited=true; z.igniteTicks=180; }
         if(b.cryo){ z.frozen=true; z.frozenTimer=90; }
         if(b.toxic){ z.poisoned=true; z.poisonTicks=200; }
 
-        // Acid projectile effect
         if (b.isAcid) {
-            z.hp -= 0.5; // DoT damage
-            z.ignited = true; // Acid might also cause burning effect
+            z.hp -= 0.5;
+            z.ignited = true;
             z.igniteTicks = 120;
-            z.poisoned = true; // Acid is toxic
+            z.poisoned = true;
             z.poisonTicks = 180;
             spawnEmbers(z.x, z.y, 3);
         }
@@ -1430,33 +1420,27 @@ function update(){
     }
   }
 
-  // ── ZOMBIES & BOSSES ──
   for(let i=G.zombies.length-1;i>=0;i--){
     const z=G.zombies[i];
     z.wobble += z.wobbleSpd;
 
-    // Status effect timers
     if (z.ignited) { z.igniteTicks--; z.igniteTimer++; if (z.igniteTimer % 20 === 0) { z.hp -= 0.5; spawnEmbers(z.x, z.y, 2); } if (z.igniteTicks <= 0) z.ignited = false; }
     if (z.poisoned) { z.poisonTicks--; if (z.poisonTicks % 15 === 0) z.hp -= 0.3; if (z.poisonTicks <= 0) z.poisoned = false; }
     if (z.frozen && --z.frozenTimer <= 0) z.frozen = false;
     if (z.hitFlash > 0) z.hitFlash--;
 
-    // If zombie HP is depleted
     if(z.hp<=0){
       if (z.isBoss) {
-          endBossFight(); // Boss defeated
+          endBossFight();
       } else {
-          killZombie(i, false); // Regular zombie killed
+          killZombie(i, false);
       }
-      continue; // Move to next zombie
+      continue;
     }
 
-    // Boss specific logic
     if (z.isBoss) {
         handleBossAbilities();
-        // Boss attack logic is handled within handleBossAbilities
     } else {
-        // Regular zombie movement and attack
         const toX = p.x-z.x, toY = p.y-z.y;
         const d = Math.hypot(toX,toY);
         if(d>0){
@@ -1464,27 +1448,25 @@ function update(){
           z.x += toX/d*spd2;
           z.y += toY/d*spd2;
         }
-        z.x=clampToMap(z.x,z.y,z.radius).x; // Use clampToMap for potentially infinite map
+        z.x=clampToMap(z.x,z.y,z.radius).x;
         z.y=clampToMap(z.x,z.y,z.radius).y;
 
-        // Blood trail (runners)
         if(z.bloodTrail){ z.bloodTrailTimer++; if(z.bloodTrailTimer%12===0) G.burnMarks.push({x:z.x,y:z.y,r:rnd(2,5),color:'rgba(120,0,0,0.3)',life:400,maxLife:400}); }
 
-        // Attack player
         if(d < PLAYER_R + z.radius){
-          if(z.type==='exploder'){ killZombie(i, true); continue; } // Exploder kills itself
+          if(z.type==='exploder'){ killZombie(i, true); continue; }
           if(z.attackTimer<=0 && p.invincible<=0){
             p.hp -= z.damage;
             p.invincible = 20;
             G.screenShake = Math.max(G.screenShake, 10);
             spawnBlood(p.x, p.y, 6);
+            playSound('player_hit');
           }
         }
         if(z.attackTimer>0) z.attackTimer--;
     }
   }
 
-  // ── PICKUPS ──
   for(let i=G.pickups.length-1;i>=0;i--){
     const pk=G.pickups[i];
     pk.life--; pk.bob+=0.06;
@@ -1496,7 +1478,6 @@ function update(){
     }
   }
 
-  // ── ROAR BLASTS ──
   for(let i=G.roarBlasts.length-1;i>=0;i--){
     const rb=G.roarBlasts[i];
     rb.r = lerp(rb.r, rb.maxR, 0.18);
@@ -1504,48 +1485,41 @@ function update(){
     if(rb.life<=0) G.roarBlasts.splice(i,1);
   }
 
-  // ── PARTICLES ──
   for(let i=G.particles.length-1;i>=0;i--){
     G.particles[i].update();
     if(G.particles[i].life<=0) G.particles.splice(i,1);
   }
 
-  // ── FLASHES ──
   for(let i=G.flashes.length-1;i>=0;i--){
     G.flashes[i].life -= 0.12;
     if(G.flashes[i].life<=0) G.flashes.splice(i,1);
   }
 
-  // ── BURN MARKS ──
   for(let i=G.burnMarks.length-1;i>=0;i--){
     G.burnMarks[i].life--;
     if(G.burnMarks[i].life<=0) G.burnMarks.splice(i,1);
   }
 
-  // ── CORPSES ──
   for(let i=G.corpses.length-1;i>=0;i--){
     G.corpses[i].alpha -= 0.0008;
     if(G.corpses[i].alpha<=0) G.corpses.splice(i,1);
-    if(G.corpses.length>200) G.corpses.splice(0,10); // Limit number of corpses for performance
+    if(G.corpses.length>200) G.corpses.splice(0,10);
   }
 
-  // ── SCREEN SHAKE ──
   G.screenShake *= 0.82;
   if(G.screenShake<0.3) G.screenShake=0;
 
-  // ── COMBO ──
   if(G.comboTimer>0){ G.comboTimer--; } else { G.combo=0; }
 
-  // ── WAVE COMPLETE CHECK ──
   if(!G.bossActive && G.zombiesRemaining<=0 && G.zombiesSpawned>=G.zombiesToSpawn && G.zombies.length===0){
     endWave();
   }
 
-  // ── DEATH ──
   if(p.hp<=0){
     p.hp=0;
     G.state='gameover';
     showGameOver();
+    playSound('game_over');
   }
 
   updateHUD();
@@ -1561,7 +1535,6 @@ function killZombie(idx, explode){
   G.score += z.score * Math.max(1, G.combo);
   G.combo++; G.comboTimer=100;
 
-  // Draco stats
   if(G.player.weapon==='draco'){
     G.dracoKillStreak++; G.totalDracoKills++;
     if(G.upgrades.draco_scales && G.totalDracoKills%8===0){
@@ -1571,7 +1544,6 @@ function killZombie(idx, explode){
     if(G.upgrades.draco_wings){ G.player.speedBoost=90; }
   }
 
-  // Gore by type
   if(z.deathGore==='burst' || z.type==='brute'){
     spawnBlood(z.x, z.y, 25, true);
     spawnFlesh(z.x, z.y);
@@ -1580,13 +1552,12 @@ function killZombie(idx, explode){
     for(let i=0;i<3;i++) G.burnMarks.push({x:z.x+rnd(-20,20),y:z.y+rnd(-20,20),r:rnd(14,28),color:'rgba(80,0,0,0.5)',life:900,maxLife:900});
   } else if(z.deathGore==='smear'){
     spawnBlood(z.x, z.y, 10);
-    // smear trail
     for(let i=0;i<5;i++) G.burnMarks.push({x:z.x+rnd(-30,30),y:z.y+rnd(-10,10),r:rnd(4,9),color:'rgba(130,0,0,0.4)',life:700,maxLife:700});
   } else if(z.deathGore==='explode' || explode){
     spawnBlood(z.x, z.y, 30, true);
     spawnGore(z.x, z.y, '#993300');
     G.screenShake = Math.max(G.screenShake, 12);
-    // Exploder damages nearby
+    playSound('zombie_explode');
     const explR = 100;
     G.player.hp -= dist2(G.player.x,G.player.y,z.x,z.y)<explR*explR ? 18:0;
     for(let j=G.zombies.length-1;j>=0;j--){
@@ -1597,13 +1568,12 @@ function killZombie(idx, explode){
     spawnBlood(z.x, z.y, 10, z.type==='brute');
   }
 
-  // Corpse
   G.corpses.push({ x:z.x, y:z.y, radius:z.radius, color:z.color, alpha:0.55, ignited:z.ignited });
 
-  // Pickup chance
   trySpawnPickup(z.x, z.y, G.luck);
 
   G.zombies.splice(idx, 1);
+  playSound('zombie_death');
 }
 
 // ─────────────────────────────────────────
@@ -1623,25 +1593,23 @@ function collectPickup(pk){
     showLuckNotify('✦ LUCK +' + luckGain + ' ✦');
   } else if(pk.type==='draco'){
     G.player.hasDraco = true;
-    G.player.weapon = 'draco'; // Switch to Draco
-    G.player.dracoWeaponSlot = { // Create a specific instance for the Draco
-        ...WEAPONS.draco, // Base Draco properties
-        name: WEAPONS.draco.name, // Keep original name
+    G.player.weapon = 'draco';
+    G.player.dracoWeaponSlot = {
+        ...WEAPONS.draco,
+        name: WEAPONS.draco.name,
         isDraco: true,
-        // Initialize base stats to allow upgrades to modify them
         baseDamage: WEAPONS.draco.baseDamage,
         baseFireRate: WEAPONS.draco.baseFireRate,
         baseAmmo: WEAPONS.draco.baseAmmo,
     };
-    G.player.ammo = getWeaponData().maxAmmo; // Set ammo to max for Draco
+    G.player.ammo = getWeaponData().maxAmmo;
     showWaveAnnounce('✦ THE DRACO FOUND ✦', '#ff8c00');
     G.screenShake = 15;
+    playSound('draco_found');
   } else if(pk.type==='chest'){
-    // Chest: luck-based reward
     const roll = Math.random();
     const luckP = Math.min(0.95, G.luck*0.015);
     if(roll < luckP){
-      // Rare: upgrade
       showLuckNotify('✦ DRACONIC FORTUNE ✦');
       setTimeout(openUpgradeMenu, 300);
     } else {
@@ -1674,11 +1642,9 @@ function render(){
   ctx.save();
   ctx.translate(-G.cam.x+sx, -G.cam.y+sy);
 
-  // ── GROUND ──
   ctx.fillStyle='#0b0e14';
-  ctx.fillRect(-10000,-10000,20000,20000); // Render a large area for infinite map
+  ctx.fillRect(-10000,-10000,20000,20000);
 
-  // Grid (only render visible grid lines)
   ctx.strokeStyle='rgba(57,255,20,0.04)';
   ctx.lineWidth=1;
   const gx0=Math.floor((G.cam.x)/GRID)*GRID;
@@ -1686,7 +1652,6 @@ function render(){
   for(let x=gx0;x<G.cam.x+w+GRID;x+=GRID){ ctx.beginPath();ctx.moveTo(x,G.cam.y);ctx.lineTo(x,G.cam.y+h);ctx.stroke(); }
   for(let y=gy0;y<G.cam.y+h+GRID;y+=GRID){ ctx.beginPath();ctx.moveTo(G.cam.x,y);ctx.lineTo(G.cam.x+w,y);ctx.stroke(); }
 
-  // ── BURN MARKS / BLOOD POOLS ──
   for(const bm of G.burnMarks){
     const a = (bm.life/bm.maxLife)*0.6;
     ctx.globalAlpha=a;
@@ -1695,7 +1660,6 @@ function render(){
   }
   ctx.globalAlpha=1;
 
-  // ── CORPSES ──
   for(const c of G.corpses){
     ctx.globalAlpha=c.alpha;
     ctx.fillStyle=c.ignited?'#2a1a00':'#1a2a0a';
@@ -1703,7 +1667,6 @@ function render(){
     ctx.globalAlpha=1;
   }
 
-  // ── PARTICLES ──
   for(const p of G.particles){
     ctx.globalAlpha = p.alpha;
     ctx.fillStyle = p.color;
@@ -1711,7 +1674,6 @@ function render(){
   }
   ctx.globalAlpha=1;
 
-  // ── ROAR BLASTS ──
   for(const rb of G.roarBlasts){
     ctx.globalAlpha = rb.life*0.35;
     const grd=ctx.createRadialGradient(rb.x,rb.y,0,rb.x,rb.y,rb.r);
@@ -1726,7 +1688,6 @@ function render(){
     ctx.globalAlpha=1;
   }
 
-  // ── PICKUPS ──
   for(const pk of G.pickups){
     const bob=Math.sin(pk.bob)*4;
     const a=pk.life<80?pk.life/80:1;
@@ -1744,7 +1705,6 @@ function render(){
         const sa=star/5*Math.PI*2; ctx.beginPath(); ctx.arc(Math.cos(sa)*8,Math.sin(sa)*8,3,0,Math.PI*2); ctx.fill();
       }
     } else if(pk.type==='draco'){
-      // Special Draco glow
       ctx.fillStyle='#ff8c00'; ctx.font='bold 22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🐉',0,0);
     } else if(pk.type==='chest'){
       ctx.fillStyle='#ffd700'; ctx.fillRect(-10,-8,20,16); ctx.fillStyle='#aa8800'; ctx.fillRect(-10,-9,20,4);
@@ -1753,38 +1713,30 @@ function render(){
     ctx.globalAlpha=1;
   }
 
-  // ── ZOMBIES & BOSSES ──
   for(const z of G.zombies){
     ctx.save(); ctx.translate(z.x, z.y);
 
-    // Boss specific rendering
     if (z.isBoss) {
-        const boss = z; // Alias for clarity
+        const boss = z;
         const wx=Math.sin(boss.wobble)*2.5, wy=Math.cos(boss.wobble*1.2)*1.5;
 
-        // Boss Shadow
         ctx.fillStyle='rgba(0,0,0,0.4)';
         ctx.beginPath(); ctx.ellipse(wx, boss.radius+5+wy, boss.radius*0.9, boss.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
 
-        // Boss Body
         ctx.fillStyle = boss.isCharging ? '#ff8844' : boss.isTeleporting ? '#8844ff' : boss.isDraining ? '#aa44ff' : boss.color;
         ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=3;
         ctx.beginPath(); ctx.arc(wx,wy,boss.radius,0,Math.PI*2); ctx.fill(); ctx.stroke();
 
-        // Boss Eyes
         ctx.shadowColor=boss.eyeColor; ctx.shadowBlur=15;
         ctx.fillStyle=boss.eyeColor;
         const eyeSize = boss.radius / 5;
         const eyeDist = boss.radius * 0.4;
         const bossAngle = Math.atan2(G.player.y - boss.y, G.player.x - boss.x);
 
-        // Left Eye
         ctx.beginPath(); ctx.arc(wx + Math.cos(bossAngle - 0.3) * eyeDist, wy + Math.sin(bossAngle - 0.3) * eyeDist, eyeSize, 0, Math.PI*2); ctx.fill();
-        // Right Eye
         ctx.beginPath(); ctx.arc(wx + Math.cos(bossAngle + 0.3) * eyeDist, wy + Math.sin(bossAngle + 0.3) * eyeDist, eyeSize, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur=0;
 
-        // Boss special effects
         if (boss.isCharging) {
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = '#ff8844';
@@ -1805,27 +1757,22 @@ function render(){
         }
 
     } else {
-        // Regular Zombie Rendering
         const wx=Math.sin(z.wobble)*2.5, wy=Math.cos(z.wobble*1.2)*1.5;
 
-        // Shadow
         ctx.fillStyle='rgba(0,0,0,0.35)';
         ctx.beginPath(); ctx.ellipse(wx,z.radius+3+wy,z.radius*0.85,z.radius*0.3,0,0,Math.PI*2); ctx.fill();
 
-        // Body glow if ignited or frozen
         if(z.ignited){ ctx.shadowColor='#ff4400'; ctx.shadowBlur=16; }
         if(z.frozen)  { ctx.shadowColor='#44aaff'; ctx.shadowBlur=10; }
 
         const col = z.hitFlash>0 ? '#ffffff' : z.ignited ? '#cc3300' : z.frozen ? '#88ccff' : z.color;
         ctx.fillStyle=col;
         ctx.beginPath(); ctx.arc(wx,wy,z.radius,0,Math.PI*2); ctx.fill();
-        ctx.shadowBlur=0; // Reset shadow blur
+        ctx.shadowBlur=0;
 
-        // Body outline
         ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.arc(wx,wy,z.radius,0,Math.PI*2); ctx.stroke();
 
-        // Wound texture on brutes
         if(z.type==='brute'){
           ctx.fillStyle='rgba(0,0,0,0.2)';
           for(let sc=0;sc<3;sc++){
@@ -1833,7 +1780,6 @@ function render(){
           }
         }
 
-        // Eyes
         const ea=Math.atan2(G.player.y-z.y, G.player.x-z.x);
         ctx.shadowColor=z.eyeColor; ctx.shadowBlur=8;
         ctx.fillStyle=z.eyeColor;
@@ -1841,7 +1787,6 @@ function render(){
         ctx.beginPath(); ctx.arc(wx+Math.cos(ea+0.4)*z.radius*0.45,wy+Math.sin(ea+0.4)*z.radius*0.45,z.type==='brute'?4:2.5,0,Math.PI*2); ctx.fill();
         ctx.shadowBlur=0;
 
-        // HP bar (if damaged)
         if(z.hp<z.maxHp){
           const bw=z.radius*2.2;
           ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(-bw/2,-z.radius-12,bw,5);
@@ -1850,33 +1795,27 @@ function render(){
           ctx.fillRect(-bw/2,-z.radius-12,bw*pct,5);
         }
 
-        // Ignite embers (render-side)
         if(z.ignited && Math.random()<0.4){
           const ea2=Math.random()*Math.PI*2;
           ctx.fillStyle=`rgba(255,${Math.floor(rnd(60,160))},0,0.8)`;
           ctx.beginPath(); ctx.arc(wx+Math.cos(ea2)*z.radius,wy+Math.sin(ea2)*z.radius,rnd(1,3),0,Math.PI*2); ctx.fill();
         }
 
-        // Poison tint
         if(z.poisoned){ ctx.globalAlpha=0.25; ctx.fillStyle='#44ff44'; ctx.beginPath(); ctx.arc(wx,wy,z.radius,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
     }
     ctx.restore();
   }
 
-  // ── BULLETS ──
   for(const b of G.bullets){
-    // Trail
     ctx.strokeStyle=b.trailColor;
     ctx.lineWidth=b.isDraco?3:2;
     ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*4,b.y-b.vy*4); ctx.stroke();
 
-    // Bullet
     ctx.shadowColor=b.color; ctx.shadowBlur=b.isDraco?16:8;
     ctx.fillStyle=b.color;
     const br=b.isDraco?5.5:b.crit?5:BULLET_R;
     ctx.beginPath(); ctx.arc(b.x,b.y,br,0,Math.PI*2); ctx.fill();
 
-    // Draco: flame aura
     if(b.isDraco){
       ctx.globalAlpha=0.3+Math.random()*0.2;
       ctx.fillStyle='#ff6600';
@@ -1886,14 +1825,12 @@ function render(){
     ctx.shadowBlur=0;
   }
 
-  // ── MUZZLE FLASHES ──
   for(const f of G.flashes){
     ctx.globalAlpha=f.life;
     if(f.isDraco){
       ctx.shadowColor='#ff4500'; ctx.shadowBlur=30;
       ctx.fillStyle='#ff8c00';
       ctx.save(); ctx.translate(f.x,f.y); ctx.rotate(f.life*3);
-      // Dragon flare shape
       for(let pt=0;pt<6;pt++){
         const ang=pt/6*Math.PI*2;
         const len=(12+Math.random()*8)*f.life;
@@ -1908,15 +1845,12 @@ function render(){
     ctx.shadowBlur=0; ctx.globalAlpha=1;
   }
 
-  // ── PLAYER ──
   const p=G.player;
   ctx.save(); ctx.translate(p.x,p.y);
 
-  // Shadow
   ctx.fillStyle='rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(0,PLAYER_R+3,PLAYER_R*0.8,PLAYER_R*0.3,0,0,Math.PI*2); ctx.fill();
 
-  // Speed boost aura
   if(p.speedBoost>0){
     ctx.globalAlpha=0.3*p.speedBoost/90;
     ctx.strokeStyle='#ff8c00'; ctx.lineWidth=3;
@@ -1924,19 +1858,16 @@ function render(){
     ctx.globalAlpha=1;
   }
 
-  // Body
   ctx.fillStyle = p.invincible>0 ? `rgba(200,200,255,${0.5+Math.sin(p.invincible*0.4)*0.5})` : '#c8d0e0';
   ctx.strokeStyle='#556677'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.arc(0,0,PLAYER_R,0,Math.PI*2); ctx.fill(); ctx.stroke();
 
-  // Gun
   ctx.save(); ctx.rotate(p.angle);
   if(G.player.weapon==='draco' && G.player.dracoWeaponSlot){
-    const wd = G.player.dracoWeaponSlot; // Use the specific Draco instance
+    const wd = G.player.dracoWeaponSlot;
     ctx.fillStyle='#2a1a00';
     ctx.shadowColor='#ff4500'; ctx.shadowBlur=12;
     ctx.fillRect(8,-4,28,8); ctx.fillStyle='#ff6600'; ctx.fillRect(28,-3,8,6);
-    // Rune glow
     ctx.globalAlpha=0.5+Math.sin(Date.now()*0.005)*0.3;
     ctx.fillStyle='#ff8c00'; ctx.beginPath(); ctx.arc(18,0,3,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha=1; ctx.shadowBlur=0;
@@ -1946,14 +1877,13 @@ function render(){
   }
   ctx.restore();
 
-  // Eyes
   ctx.shadowColor='#3399ff'; ctx.shadowBlur=5; ctx.fillStyle='#55aaff';
   ctx.beginPath(); ctx.arc(Math.cos(p.angle-0.4)*7,Math.sin(p.angle-0.4)*7,2.5,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(Math.cos(p.angle+0.4)*7,Math.sin(p.angle+0.4)*7,2.5,0,Math.PI*2); ctx.fill();
   ctx.shadowBlur=0;
 
   ctx.restore();
-  ctx.restore(); // end camera
+  ctx.restore();
 }
 
 // ─────────────────────────────────────────
@@ -1970,6 +1900,10 @@ function hideOverlay(){
 }
 
 function showMenu(){
+  // Ensure player starts with owned weapons
+  G.player.ownedWeapons = ['pistol', 'smg', 'shotgun'];
+  G.player.weapon = 'pistol'; // Default to pistol
+
   showScreen(`
     <div class="game-title">DEAD WAVE</div>
     <div class="sub-title">ULTIMATE EDITION</div>
@@ -2014,7 +1948,7 @@ function showGameOver(){
 //  START / RESTART
 // ─────────────────────────────────────────
 window.startGame = function(){
-  G = makeState();
+  G = makeState(); // Reset game state
   document.getElementById('hud').style.display='block';
   hideOverlay();
   startWave();
@@ -2041,5 +1975,8 @@ function loop(){
 // ─────────────────────────────────────────
 //  INIT
 // ─────────────────────────────────────────
-showMenu();
-loop(); // start loop so idle renders
+document.addEventListener('DOMContentLoaded', () => {
+    preloadSounds();
+    showMenu(); // Show the main menu first
+    loop(); // Start the game loop
+});
