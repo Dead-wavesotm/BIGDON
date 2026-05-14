@@ -1,257 +1,548 @@
 /* style.css */
 
+/* --- FONTS --- */
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #000; overflow: hidden; width: 100vw; height: 100vh; font-family: 'Press Start 2P', monospace; cursor: crosshair; }
-canvas { display: block; }
 
-/* ── OVERLAY SCREENS ── */
-#overlay {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.88);
-  z-index: 100;
-  transition: opacity 0.4s;
+/* --- GLOBAL RESETS & BASE STYLES --- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box; /* Essential for consistent sizing */
 }
-#overlay.hidden { opacity: 0; pointer-events: none; }
 
-.screen { text-align: center; max-width: 620px; padding: 20px; }
+body {
+  background-color: #000; /* Dark background */
+  overflow: hidden; /* Prevent scrollbars for full-screen canvas */
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Press Start 2P', monospace; /* Pixelated font */
+  cursor: crosshair; /* Game-specific cursor */
+  color: #fff; /* Default text color */
+}
+
+canvas {
+  display: block; /* Remove extra space below canvas */
+  position: fixed; /* Ensure canvas is layered correctly */
+  top: 0;
+  left: 0;
+  z-index: 1; /* Below overlays, above background */
+}
+
+/* --- UTILITY CLASSES --- */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.hidden { opacity: 0; pointer-events: none; } /* For transitions */
+
+/* --- OVERLAY SCREENS (General) --- */
+.overlay {
+  position: fixed;
+  inset: 0; /* Shorthand for top:0; right:0; bottom:0; left:0; */
+  background-color: rgba(0, 0, 0, 0.88);
+  z-index: 100;
+  transition: opacity 0.4s ease-in-out; /* Smoother transition */
+}
+.overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.screen {
+  max-width: 620px;
+  padding: 25px; /* Increased padding slightly */
+  width: 95%; /* Responsive width */
+  margin: 0 auto; /* Center the screen content */
+}
+
+/* --- GAME TITLE SCREEN SPECIFIC STYLES --- */
+#main-screen { /* Targeting the specific screen for the main menu */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%; /* Occupy full height of overlay */
+}
 
 .game-title {
-  font-size: clamp(28px,5vw,52px);
-  color: #39ff14;
-  text-shadow: 0 0 20px #39ff14, 0 0 40px #39ff14;
+  font-size: clamp(28px, 5vw, 52px);
+  color: #39ff14; /* Neon green */
+  text-shadow: 0 0 10px #39ff14, 0 0 25px #39ff14, 0 0 40px #39ff14; /* Enhanced glow */
   letter-spacing: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 10px; /* Slightly adjusted */
+  line-height: 1.2; /* Better line spacing for multi-line titles */
 }
-.sub-title { font-size: 10px; color: #ff4444; margin-bottom: 30px; letter-spacing: 2px; }
-.draco-label { font-size: 9px; color: #ff8c00; text-shadow: 0 0 10px #ff4500; margin-bottom: 24px; }
+.sub-title {
+  font-size: clamp(8px, 2.5vw, 12px); /* Responsive subtitle size */
+  color: #ff4444; /* Red */
+  margin-bottom: 35px; /* Adjusted spacing */
+  letter-spacing: 2px;
+  text-transform: uppercase; /* Consistent casing */
+}
+.draco-label {
+  font-size: clamp(7px, 2vw, 10px); /* Responsive label size */
+  color: #ff8c00; /* Orange */
+  text-shadow: 0 0 5px #ff4500, 0 0 12px #ff4500; /* Refined shadow */
+  margin-bottom: 28px; /* Adjusted spacing */
+  letter-spacing: 1px;
+}
 
 .controls-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 8px; margin-bottom: 24px; text-align: left;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* More explicit */
+  gap: 10px; /* Slightly larger gap */
+  margin-bottom: 28px; /* Adjusted spacing */
+  width: 100%; /* Ensure it takes full width */
+  max-width: 400px; /* Limit width for better readability */
 }
 .ctrl-item {
-  background: rgba(57,255,20,0.07);
-  border: 1px solid rgba(57,255,20,0.2);
-  border-radius: 6px; padding: 8px 12px;
-  font-size: 8px; color: #aaa;
+  background: rgba(57, 255, 20, 0.07); /* Neon green tint */
+  border: 1px solid rgba(57, 255, 20, 0.25); /* Slightly stronger border */
+  border-radius: 6px;
+  padding: 10px 15px; /* Adjusted padding */
+  font-size: 9px; /* Slightly larger font */
+  color: #ccc; /* Lighter grey for description */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start; /* Align text to the left */
 }
-.ctrl-item span { color: #39ff14; display: block; margin-bottom: 3px; }
+.ctrl-item span {
+  color: #39ff14; /* Neon green for keys */
+  display: inline-block; /* Use inline-block for better spacing */
+  margin-right: 8px; /* Space between key and text */
+  font-weight: bold; /* Make keys stand out */
+  padding: 2px 5px;
+  background-color: rgba(57, 255, 20, 0.15); /* Subtle background for keys */
+  border-radius: 3px;
+}
 
+.info-text { /* For general info text */
+  font-size: 8px;
+  color: #aaa;
+  line-height: 1.8;
+  margin-bottom: 30px;
+  letter-spacing: 0.5px;
+}
+
+/* --- BUTTON STYLES --- */
 .btn {
-  background: linear-gradient(135deg,#39ff14,#00cc44);
-  color: #000; border: none; padding: 14px 36px;
+  background: linear-gradient(135deg, #39ff14, #00cc44); /* Green gradient */
+  color: #000; /* Black text */
+  border: none;
+  padding: 14px 36px;
   font-family: 'Press Start 2P', monospace;
-  font-size: 11px; border-radius: 4px;
-  cursor: pointer; letter-spacing: 2px;
-  box-shadow: 0 0 20px rgba(57,255,20,0.5);
-  transition: all 0.15s ease-in-out; /* Added ease-in-out */
+  font-size: 11px;
+  border-radius: 5px; /* Slightly softer corners */
+  cursor: pointer;
+  letter-spacing: 2px;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.2); /* Added inset shadow */
+  transition: all 0.2s ease-in-out; /* Smoother transition */
+  text-transform: uppercase;
 }
-.btn:hover { transform: scale(1.06); box-shadow: 0 0 30px rgba(57,255,20,0.8); }
+.btn:hover, .btn:focus {
+  transform: translateY(-2px) scale(1.06); /* Lift and scale on hover/focus */
+  box-shadow: 0 0 25px rgba(57, 255, 20, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.3); /* Stronger glow and inset */
+  outline: none; /* Remove default outline */
+}
+.btn:active {
+  transform: translateY(0px) scale(1.02); /* Slightly press down on active */
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.7);
+}
+
 .btn.red {
-  background: linear-gradient(135deg,#ff2222,#aa0000);
-  box-shadow: 0 0 20px rgba(255,34,34,0.5);
+  background: linear-gradient(135deg, #ff2222, #aa0000); /* Red gradient */
+  box-shadow: 0 0 15px rgba(255, 34, 34, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.2);
 }
-.btn.red:hover { box-shadow: 0 0 30px rgba(255,34,34,0.8); }
+.btn.red:hover, .btn.red:focus {
+  box-shadow: 0 0 25px rgba(255, 34, 34, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.3);
+}
+.btn.red:active {
+  box-shadow: 0 0 10px rgba(255, 34, 34, 0.7);
+}
 
-/* ── HUD ── */
+/* --- HUD (Heads-Up Display) --- */
 #hud {
-  position: fixed; inset: 0; pointer-events: none;
-  z-index: 50; font-family: 'Press Start 2P', monospace;
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* Allow clicks to pass through */
+  z-index: 50;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px; /* Base font size for HUD */
 }
-.hud-top {
-  position: absolute; top: 12px; left: 12px; right: 12px;
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+.hud-top, .hud-bottom {
+  position: absolute;
+  left: 15px; /* Consistent spacing */
+  right: 15px;
+  display: flex;
+  gap: 12px; /* Spacing between HUD elements */
+  align-items: flex-start; /* Align tops */
 }
+.hud-top { top: 15px; }
+.hud-bottom { bottom: 15px; }
+
 .hud-box {
-  background: rgba(0,0,0,0.7);
-  border: 1px solid rgba(57,255,20,0.25);
-  border-radius: 6px; padding: 8px 12px;
-  min-width: 100px;
+  background: rgba(0, 0, 0, 0.75); /* Slightly more opaque */
+  border: 1px solid rgba(57, 255, 20, 0.3); /* Stronger border */
+  border-radius: 8px; /* Softer corners */
+  padding: 10px 15px;
+  min-width: 110px; /* Ensure consistent minimum width */
+  flex-shrink: 0; /* Prevent shrinking */
 }
-.hud-label { font-size: 7px; color: #666; margin-bottom: 5px; letter-spacing: 1px; }
-.hud-val { font-size: 11px; color: #fff; }
-.hud-bar-wrap { width: 100%; height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-top: 5px; }
-.hud-bar { height: 100%; border-radius: 4px; transition: width 0.2s; }
-.bar-hp { background: linear-gradient(90deg,#ff4444,#ff8888); }
-.bar-ammo { background: linear-gradient(90deg,#ffaa00,#ffdd44); }
-.bar-luck { background: linear-gradient(90deg,#8844ff,#dd88ff); }
+.hud-label {
+  font-size: 7px; /* Smaller label font */
+  color: #777; /* Darker grey for labels */
+  margin-bottom: 6px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.hud-val {
+  font-size: 12px; /* Larger value font */
+  color: #fff;
+  margin-bottom: 8px; /* Space before bar */
+  font-weight: bold;
+}
+.hud-bar-wrap {
+  width: 100%;
+  height: 10px; /* Thicker bars */
+  background: rgba(20, 20, 20, 0.8); /* Darker background for bars */
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.hud-bar {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother, realistic transition */
+}
+/* Specific bar colors */
+.bar-hp { background: linear-gradient(90deg, #ff3333, #ff8888); }
+.bar-ammo { background: linear-gradient(90deg, #ffaa00, #ffdd44); }
+.bar-luck { background: linear-gradient(90deg, #aa44ff, #dd88ff); }
 
-.hud-bottom {
-  position: absolute; bottom: 12px; left: 12px; right: 12px;
-  display: flex; justify-content: space-between; align-items: flex-end; gap: 10px;
-}
-.weapon-box {
-  background: rgba(0,0,0,0.7);
-  border: 1px solid rgba(57,255,20,0.25);
-  border-radius: 6px; padding: 8px 14px; min-width: 160px;
-}
-.weapon-box.draco-active { border-color: #ff8c00; box-shadow: 0 0 12px rgba(255,140,0,0.4); }
-.weapon-name { font-size: 9px; color: #fff; }
-.weapon-name.draco { color: #ff8c00; text-shadow: 0 0 8px #ff4500; }
+.hud-bottom .weapon-box { min-width: 180px; } /* Wider weapon box */
+.weapon-box.draco-active { border-color: #ff8c00; box-shadow: 0 0 15px rgba(255, 140, 0, 0.5); }
+.weapon-name { font-size: 10px; font-weight: bold; }
+.weapon-name.draco { color: #ff8c00; text-shadow: 0 0 10px #ff4500; }
+#weapon-upgrades { font-size: 7px; color: #777; margin-top: 5px; }
+#hud-reload-hint { font-size: 7px; color: #ffaa00; margin-top: 5px; text-align: center; }
+.hud-box[style*="min-width:90px"] { /* Kills box */ min-width: 90px; text-align: center; }
 
-#wave-announce {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  font-size: clamp(18px,4vw,36px);
-  color: #ff4444; text-shadow: 0 0 20px #ff0000;
-  pointer-events: none; z-index: 60;
-  opacity: 0; transition: opacity 0.3s;
+/* --- NOTIFICATION & ANNOUNCEMENT STYLES --- */
+#wave-announce, #luck-notify {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(18px, 4vw, 38px); /* Responsive size */
+  color: #ff4444;
+  text-shadow: 0 0 15px #ff0000, 0 0 30px #ff0000; /* Stronger shadow */
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity 0.35s ease-in-out; /* Smoother fade */
   letter-spacing: 4px;
+  white-space: nowrap; /* Prevent wrapping */
+}
+#wave-announce.boss { color: #ff4444; text-shadow: 0 0 15px #ff0000, 0 0 30px #ff0000; }
+#wave-announce.clear { color: #39ff14; text-shadow: 0 0 15px #39ff14, 0 0 30px #39ff14; }
+
+#luck-notify {
+  font-size: clamp(10px, 3vw, 24px); /* Larger luck notification */
+  color: #dd88ff;
+  text-shadow: 0 0 15px #8844ff, 0 0 30px #8844ff;
 }
 
-/* ── UPGRADE MENU ── */
+/* --- UPGRADE MENU --- */
 #upgrade-menu {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.92);
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.95); /* Darker overlay */
   z-index: 80;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-in-out;
 }
 #upgrade-menu.visible { opacity: 1; pointer-events: all; }
+
 .upgrade-panel {
-  max-width: 700px; width: 95%;
+  max-width: 750px; /* Slightly wider panel */
+  width: 95%;
   background: #0a0a0a;
-  border: 1px solid rgba(57,255,20,0.3);
-  border-radius: 10px; padding: 28px;
+  border: 1px solid rgba(57, 255, 20, 0.4); /* Stronger border */
+  border-radius: 12px; /* More rounded corners */
+  padding: 35px; /* More padding */
 }
-.upgrade-title { font-size: 14px; color: #39ff14; text-align: center; margin-bottom: 6px; }
-.upgrade-sub { font-size: 8px; color: #888; text-align: center; margin-bottom: 22px; }
-.upgrade-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-.upgrade-card {
-  background: #111; border: 1px solid #333;
-  border-radius: 8px; padding: 14px 10px;
-  cursor: pointer; transition: all 0.2s ease-in-out; /* Added ease-in-out */
+.upgrade-title {
+  font-size: 16px; /* Larger title */
+  color: #39ff14;
   text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 2px;
 }
-.upgrade-card:hover { border-color: #39ff14; box-shadow: 0 0 12px rgba(57,255,20,0.3); transform: translateY(-2px); }
+.upgrade-sub {
+  font-size: 9px; /* Slightly larger subtitle */
+  color: #bbb; /* Lighter subtitle text */
+  margin-bottom: 28px;
+}
+.upgrade-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px; /* Larger gap between cards */
+  margin-bottom: 25px;
+}
+.upgrade-card {
+  background: #1a1a1a; /* Darker card background */
+  border: 1px solid #3a3a3a; /* Darker border */
+  border-radius: 10px; /* Rounded corners */
+  padding: 18px 12px; /* More padding */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; /* Distribute space */
+  min-height: 160px; /* Fixed height for cards */
+}
+.upgrade-card:hover, .upgrade-card:focus {
+  border-color: #39ff14;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.4), 0 4px 10px rgba(0,0,0,0.3); /* Added shadow */
+  transform: translateY(-3px); /* Lift effect */
+}
 .upgrade-card.draco-card { border-color: #ff4500; }
-.upgrade-card.draco-card:hover { box-shadow: 0 0 12px rgba(255,69,0,0.5); }
-.upgrade-card.locked { opacity: 0.35; cursor: not-allowed; }
-.upgrade-card.locked:hover { transform: none; border-color: #333; box-shadow: none; }
-.up-icon { font-size: 20px; margin-bottom: 8px; }
-.up-name { font-size: 8px; color: #fff; margin-bottom: 6px; line-height: 1.5; }
-.up-name.draco { color: #ff8c00; }
-.up-desc { font-size: 7px; color: #888; line-height: 1.6; }
-.up-tier { font-size: 7px; margin-top: 6px; color: #555; }
-.tier-common { color: #aaa; }
-.tier-rare { color: #4499ff; }
-.tier-epic { color: #aa44ff; }
-.tier-special { color: #ff69b4; text-shadow: 0 0 6px #ff1493; } /* New tier color */
-.tier-mythic { color: #ff8c00; text-shadow: 0 0 6px #ff4500; }
-.skip-btn { margin-top: 18px; text-align: center; }
+.upgrade-card.draco-card:hover, .upgrade-card.draco-card:focus {
+  box-shadow: 0 0 15px rgba(255, 69, 0, 0.5), 0 4px 10px rgba(0,0,0,0.3);
+}
+.upgrade-card.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #444; /* Dimmed border */
+  transform: none; /* No hover effect */
+  box-shadow: none;
+}
+.upgrade-card.locked:hover { transform: none; border-color: #444; box-shadow: none; }
+
+.up-icon { font-size: 28px; margin-bottom: 10px; } /* Larger icon */
+.up-name {
+  font-size: 9px;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.6;
+  font-weight: bold;
+}
+.up-name.draco { color: #ff8c00; text-shadow: 0 0 8px #ff4500; }
+.up-desc {
+  font-size: 7.5px; /* Slightly larger description */
+  color: #aaa;
+  line-height: 1.7;
+  margin-bottom: 8px; /* Space before tier */
+}
+.up-tier {
+  font-size: 7px;
+  margin-top: auto; /* Push tier to the bottom */
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.tier-common { background-color: rgba(170, 170, 170, 0.2); color: #aaa; }
+.tier-rare { background-color: rgba(68, 153, 255, 0.2); color: #4499ff; }
+.tier-epic { background-color: rgba(170, 68, 255, 0.2); color: #aa44ff; }
+.tier-special { background-color: rgba(255, 105, 180, 0.2); color: #ff69b4; text-shadow: 0 0 5px #ff1493; }
+.tier-mythic { background-color: rgba(255, 140, 0, 0.25); color: #ff8c00; text-shadow: 0 0 5px #ff4500; }
+
+.skip-btn { margin-top: 25px; text-align: center; }
 .skip-btn button {
-  background: none; border: 1px solid #333; color: #555;
-  font-family: 'Press Start 2P', monospace; font-size: 8px;
-  padding: 8px 20px; border-radius: 4px; cursor: pointer;
-  transition: all 0.15s ease-in-out; /* Added ease-in-out */
+  background: none;
+  border: 1px solid #444; /* Darker border */
+  color: #666; /* Darker grey text */
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px; /* Larger font */
+  padding: 8px 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  letter-spacing: 1px;
 }
-.skip-btn button:hover { border-color: #666; color: #888; transform: translateY(-2px); }
+.skip-btn button:hover, .skip-btn button:focus {
+  border-color: #777;
+  color: #888;
+  transform: translateY(-2px);
+  box-shadow: 0 0 8px rgba(255,255,255,0.1);
+}
 
-/* ── LUCK NOTIFICATION ── */
+/* --- LUCK NOTIFICATION --- */
 #luck-notify {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  font-size: 12px; color: #dd88ff;
-  text-shadow: 0 0 20px #8844ff;
-  pointer-events: none; z-index: 70;
-  opacity: 0; transition: opacity 0.3s;
-  text-align: center; letter-spacing: 3px;
+  font-size: clamp(12px, 3.5vw, 26px); /* Larger notification */
+  color: #dd88ff;
+  text-shadow: 0 0 15px #8844ff, 0 0 30px #8844ff;
 }
 
-/* ── GAME OVER SCREEN ── */
+/* --- GAME OVER SCREEN --- */
 .go-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  margin: 20px 0; text-align: left;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Two columns */
+  gap: 12px; /* Spacing between stats */
+  margin: 25px 0;
+  width: 100%;
+  max-width: 450px; /* Limit width */
 }
 .go-stat {
-  background: rgba(57,255,20,0.05);
-  border: 1px solid rgba(57,255,20,0.15);
-  border-radius: 6px; padding: 10px 14px;
+  background: rgba(57, 255, 20, 0.05);
+  border: 1px solid rgba(57, 255, 20, 0.2);
+  border-radius: 8px;
+  padding: 12px 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
-.go-stat-label { font-size: 7px; color: #555; margin-bottom: 5px; }
-.go-stat-val { font-size: 13px; color: #39ff14; }
+.go-stat-label { font-size: 7.5px; color: #777; margin-bottom: 7px; }
+.go-stat-val {
+  font-size: 14px; /* Larger values */
+  color: #39ff14;
+  font-weight: bold;
+}
+/* Specific value colors */
+.go-stat-val[style*="color:#ff4444"] { color: #ff4444; } /* Kills */
+.go-stat-val[style*="color:#cc0000"] { color: #cc0000; } /* Blood */
+.go-stat-val[style*="color:#ff8c00"] { color: #ff8c00; } /* Draco */
+.go-stat-val[style*="color:#dd88ff"] { color: #dd88ff; } /* Luck */
 
-/* vignette */
+/* --- VIGNETTE --- */
 #damage-vignette {
-  position: fixed; inset: 0; pointer-events: none; z-index: 55;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(200,0,0,0) 100%);
-  transition: background 0.1s;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(200, 0, 0, 0) 100%); /* Default transparent */
+  transition: background 0.1s ease-out; /* Smoother fade */
 }
 
-/* Boss Health Bar */
+/* --- BOSS HEALTH BAR --- */
 #boss-health-bar-container {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    max-width: 600px;
-    z-index: 90;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
+  position: fixed;
+  top: 25px; /* Adjusted position */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 65%; /* Wider bar */
+  max-width: 660px; /* Max width */
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
 }
 #boss-health-bar-container.visible { opacity: 1; }
 .boss-bar-wrap {
-    height: 12px;
-    background: rgba(0,0,0,0.8);
-    border: 1px solid rgba(255,34,34,0.5);
-    border-radius: 6px;
-    overflow: hidden;
+  height: 15px; /* Thicker boss bar */
+  background: rgba(0, 0, 0, 0.9); /* Darker background */
+  border: 1px solid rgba(255, 34, 34, 0.7); /* Stronger border */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(255, 34, 34, 0.3); /* Subtle glow */
 }
 .boss-bar {
-    height: 100%;
-    background: linear-gradient(90deg,#ff4444,#ff8888);
-    border-radius: 6px;
-    transition: width 0.2s linear; /* Faster transition for boss health */
+  height: 100%;
+  background: linear-gradient(90deg, #ff3333, #ff8888); /* Brighter health gradient */
+  border-radius: 8px;
+  transition: width 0.25s linear; /* Faster, linear transition for boss health */
 }
 .boss-name {
-    font-size: 9px;
-    color: #ff4444;
-    text-align: center;
-    margin-bottom: 4px;
-    text-shadow: 0 0 8px #ff0000;
+  font-size: 10px; /* Larger name */
+  color: #ff4444;
+  text-align: center;
+  margin-bottom: 6px;
+  text-shadow: 0 0 8px #ff0000, 0 0 15px #ff0000; /* Stronger shadow */
+  font-weight: bold;
 }
 
-/* ── JACKPOT WHEEL ── */
+/* --- JACKPOT WHEEL --- */
 #jackpot-wheel-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.92);
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.95); /* Darker overlay */
   z-index: 110;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-in-out;
 }
 #jackpot-wheel-overlay.visible { opacity: 1; pointer-events: all; }
+
 .wheel-panel {
-  max-width: 500px; width: 95%;
-  background: #111;
-  border: 2px solid #ffdd44;
-  border-radius: 12px; padding: 28px;
+  max-width: 550px; /* Wider panel */
+  width: 95%;
+  background: #1a1a1a; /* Darker panel */
+  border: 2px solid #ffdd44; /* Yellow border */
+  border-radius: 14px; /* More rounded */
+  padding: 35px;
   text-align: center;
 }
-.wheel-title { font-size: 16px; color: #ffdd44; margin-bottom: 10px; text-shadow: 0 0 10px #ffdd44; }
-.wheel-sub { font-size: 8px; color: #aaa; margin-bottom: 20px; }
-.wheel-container { position: relative; width: 300px; height: 300px; margin: 0 auto; }
-.wheel-canvas { border-radius: 50%; border: 4px solid #ffdd44; }
+.wheel-title {
+  font-size: 18px; /* Larger title */
+  color: #ffdd44;
+  margin-bottom: 12px;
+  text-shadow: 0 0 10px #ffdd44, 0 0 20px #ffdd44; /* Stronger glow */
+  letter-spacing: 2px;
+}
+.wheel-sub { font-size: 9px; color: #bbb; margin-bottom: 25px; }
+.wheel-container {
+  position: relative;
+  width: 320px; /* Slightly larger canvas */
+  height: 320px;
+  margin: 0 auto;
+  border-radius: 50%; /* Ensure it's circular */
+}
+.wheel-canvas {
+  border-radius: 50%;
+  border: 5px solid #ffdd44; /* Thicker border */
+  box-shadow: 0 0 25px rgba(255, 221, 68, 0.5); /* Added glow */
+}
 .wheel-pointer {
-  position: absolute; top: -15px; left: 50%;
+  position: absolute;
+  top: -18px; /* Positioned above the wheel */
+  left: 50%;
   transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 15px solid transparent;
-  border-right: 15px solid transparent;
-  border-top: 25px solid #ffdd44; /* Pointer color */
+  width: 0;
+  height: 0;
+  border-left: 18px solid transparent;
+  border-right: 18px solid transparent;
+  border-top: 30px solid #ffdd44; /* Yellow pointer */
   z-index: 10;
 }
 .spin-btn {
-  background: linear-gradient(135deg,#ffdd44,#ffaa00);
-  color: #221100; border: none; padding: 14px 36px;
+  background: linear-gradient(135deg, #ffdd44, #ffaa00); /* Gold/Orange gradient */
+  color: #221100; /* Dark text */
+  border: none;
+  padding: 15px 40px;
   font-family: 'Press Start 2P', monospace;
-  font-size: 11px; border-radius: 4px;
-  cursor: pointer; letter-spacing: 2px;
-  box-shadow: 0 0 20px rgba(255,221,68,0.6);
-  transition: all 0.15s ease-in-out;
-  margin-top: 20px;
+  font-size: 12px; /* Larger font */
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 2.5px;
+  box-shadow: 0 0 20px rgba(255, 221, 68, 0.7);
+  transition: all 0.2s ease-in-out;
+  margin-top: 25px;
+  text-transform: uppercase;
 }
-.spin-btn:hover { transform: scale(1.06); box-shadow: 0 0 30px rgba(255,221,68,0.9); }
-.wheel-result { font-size: 12px; color: #39ff14; margin-top: 15px; font-weight: bold; }
-.wheel-result.lost { color: #ff4444; }
+.spin-btn:hover, .spin-btn:focus {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 0 30px rgba(255, 221, 68, 1);
+  outline: none;
+}
+.spin-btn:active {
+  transform: translateY(0px) scale(1.02);
+  box-shadow: 0 0 15px rgba(255, 221, 68, 0.8);
+}
+.wheel-result {
+  font-size: 13px; /* Larger result text */
+  color: #39ff14; /* Green */
+  margin-top: 20px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.wheel-result.lost { color: #ff4444; } /* Red for lost */
